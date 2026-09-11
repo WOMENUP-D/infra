@@ -3,9 +3,9 @@ set -euo pipefail
 umask 077
 : "${VPS_HOST:?}" "${VPS_USERNAME:?}" "${VPS_SSH_KEY:?}" "${VPS_KNOWN_HOSTS:?}"
 : "${GHCR_USERNAME:?}" "${GHCR_READ_TOKEN:?}"
-ROOT="${DEPLOY_ROOT:-/opt/womanup}"
-PORT="${VPS_SSH_PORT:-22}"
-MODE="${DEPLOY_MODE:-deploy}"
+ROOT="${DEPLOY_ROOT:?}"
+PORT="${VPS_SSH_PORT:?}"
+MODE="${1:-deploy}"
 [[ "$ROOT" =~ ^/opt/[a-z0-9-]+$ ]]
 [[ "$PORT" =~ ^[0-9]{1,5}$ ]] && (( PORT > 0 && PORT < 65536 ))
 [[ "$VPS_HOST" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*$ ]]

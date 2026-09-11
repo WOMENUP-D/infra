@@ -24,8 +24,10 @@ class ConfigTests(unittest.TestCase):
         values = {
             "APP_DOMAIN": "womanup.uz",
             "POSTGRES_PASSWORD": "a" * 64,
-            "BACKEND_SECRETS_JSON": '{"JWT_SECRET_KEY":"' + "s" * 64 + '","FIREBASE_PRIVATE_KEY":"line1\\nline2","SMTP_PASSWORD":"dollar$quote\'"}',
-            "BACKEND_VARS_JSON": '{"NEWS_INGEST_ENABLED":false,"CORS_ORIGINS":"https://wrong.example"}',
+            "JWT_SECRET_KEY": "s" * 64,
+            "FIREBASE_PRIVATE_KEY": "line1\\nline2",
+            "SMTP_PASSWORD": "dollar$quote'",
+            "NEWS_INGEST_ENABLED": "false",
             "FIREBASE_WEB_PROJECT_ID": "public-project",
         }
         with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, values, clear=True):
@@ -42,6 +44,7 @@ class ConfigTests(unittest.TestCase):
             self.assertNotIn("JWT", frontend)
             self.assertNotIn("PRIVATE_KEY", frontend)
             self.assertNotIn("s" * 64, frontend)
+            self.assertNotIn("BACKEND_SECRETS_JSON", backend)
 
     def test_rejects_missing_secret_and_domain_injection(self):
         with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {}, clear=True):

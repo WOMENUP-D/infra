@@ -16,6 +16,75 @@ jobs:
     concurrency:
       group: womanup-prod-server
       cancel-in-progress: false
+    env:
+      DEPLOY_ROOT: ${{ vars.DEPLOY_ROOT }}
+      VPS_SSH_PORT: ${{ vars.VPS_SSH_PORT }}
+      VPS_HOST: ${{ vars.VPS_HOST }}
+      VPS_USERNAME: ${{ vars.VPS_USERNAME }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+      GHCR_USERNAME: ${{ vars.GHCR_USERNAME }}
+      GHCR_READ_TOKEN: ${{ secrets.GHCR_READ_TOKEN }}
+      APP_DOMAIN: ${{ vars.APP_DOMAIN }}
+      POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+      JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
+      FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      SMS_PROVIDER_TOKEN: ${{ secrets.SMS_PROVIDER_TOKEN }}
+      SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+      EDU_JOB_CLIENT_SECRET: ${{ secrets.EDU_JOB_CLIENT_SECRET }}
+      INVEST_HUB_CLIENT_SECRET: ${{ secrets.INVEST_HUB_CLIENT_SECRET }}
+      COMMERCE_CLIENT_SECRET: ${{ secrets.COMMERCE_CLIENT_SECRET }}
+      S3_ACCESS_KEY: ${{ secrets.S3_ACCESS_KEY }}
+      S3_SECRET_KEY: ${{ secrets.S3_SECRET_KEY }}
+      DB_POOL_SIZE: ${{ vars.DB_POOL_SIZE }}
+      DB_MAX_OVERFLOW: ${{ vars.DB_MAX_OVERFLOW }}
+      ACCESS_TOKEN_TTL_MINUTES: ${{ vars.ACCESS_TOKEN_TTL_MINUTES }}
+      REFRESH_TOKEN_TTL_DAYS: ${{ vars.REFRESH_TOKEN_TTL_DAYS }}
+      OTP_LENGTH: ${{ vars.OTP_LENGTH }}
+      OTP_TTL_SECONDS: ${{ vars.OTP_TTL_SECONDS }}
+      OTP_MAX_ATTEMPTS: ${{ vars.OTP_MAX_ATTEMPTS }}
+      OTP_RESEND_COOLDOWN_SECONDS: ${{ vars.OTP_RESEND_COOLDOWN_SECONDS }}
+      FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+      FIREBASE_CLIENT_EMAIL: ${{ vars.FIREBASE_CLIENT_EMAIL }}
+      FIREBASE_ALLOWED_DOMAIN: ${{ vars.FIREBASE_ALLOWED_DOMAIN }}
+      DEFAULT_LANGUAGE: ${{ vars.DEFAULT_LANGUAGE }}
+      AI_MODEL: ${{ vars.AI_MODEL }}
+      AI_EFFORT: ${{ vars.AI_EFFORT }}
+      AI_MAX_TOKENS: ${{ vars.AI_MAX_TOKENS }}
+      ASSISTANT_GUEST_QUESTIONS: ${{ vars.ASSISTANT_GUEST_QUESTIONS }}
+      AI_RAG_TOP_K: ${{ vars.AI_RAG_TOP_K }}
+      AI_MIN_CONFIDENCE: ${{ vars.AI_MIN_CONFIDENCE }}
+      EMBEDDING_DIMENSIONS: ${{ vars.EMBEDDING_DIMENSIONS }}
+      NEWS_INGEST_ENABLED: ${{ vars.NEWS_INGEST_ENABLED }}
+      NEWS_INGEST_INTERVAL_HOURS: ${{ vars.NEWS_INGEST_INTERVAL_HOURS }}
+      NEWS_INGEST_MAX_POSTS: ${{ vars.NEWS_INGEST_MAX_POSTS }}
+      NEWS_INGEST_LOOKBACK_HOURS: ${{ vars.NEWS_INGEST_LOOKBACK_HOURS }}
+      NEWS_INGEST_DEDUP_DAYS: ${{ vars.NEWS_INGEST_DEDUP_DAYS }}
+      NEWS_INGEST_AUTO_PUBLISH: ${{ vars.NEWS_INGEST_AUTO_PUBLISH }}
+      NEWS_INGEST_ALLOWED_DOMAINS: ${{ vars.NEWS_INGEST_ALLOWED_DOMAINS }}
+      SMS_PROVIDER_URL: ${{ vars.SMS_PROVIDER_URL }}
+      SMTP_HOST: ${{ vars.SMTP_HOST }}
+      SMTP_PORT: ${{ vars.SMTP_PORT }}
+      SMTP_USER: ${{ vars.SMTP_USER }}
+      SMTP_FROM: ${{ vars.SMTP_FROM }}
+      EDU_JOB_BASE_URL: ${{ vars.EDU_JOB_BASE_URL }}
+      EDU_JOB_CLIENT_ID: ${{ vars.EDU_JOB_CLIENT_ID }}
+      INVEST_HUB_BASE_URL: ${{ vars.INVEST_HUB_BASE_URL }}
+      INVEST_HUB_CLIENT_ID: ${{ vars.INVEST_HUB_CLIENT_ID }}
+      COMMERCE_BASE_URL: ${{ vars.COMMERCE_BASE_URL }}
+      COMMERCE_CLIENT_ID: ${{ vars.COMMERCE_CLIENT_ID }}
+      INTEGRATION_TIMEOUT_SECONDS: ${{ vars.INTEGRATION_TIMEOUT_SECONDS }}
+      INTEGRATION_MAX_RETRIES: ${{ vars.INTEGRATION_MAX_RETRIES }}
+      S3_ENDPOINT_URL: ${{ vars.S3_ENDPOINT_URL }}
+      S3_BUCKET: ${{ vars.S3_BUCKET }}
+      RATE_LIMIT_PER_MINUTE: ${{ vars.RATE_LIMIT_PER_MINUTE }}
+      FIREBASE_WEB_API_KEY: ${{ vars.FIREBASE_WEB_API_KEY }}
+      FIREBASE_WEB_AUTH_DOMAIN: ${{ vars.FIREBASE_WEB_AUTH_DOMAIN }}
+      FIREBASE_WEB_PROJECT_ID: ${{ vars.FIREBASE_WEB_PROJECT_ID }}
+      FIREBASE_WEB_APP_ID: ${{ vars.FIREBASE_WEB_APP_ID }}
+      FIREBASE_WEB_STORAGE_BUCKET: ${{ vars.FIREBASE_WEB_STORAGE_BUCKET }}
+      FIREBASE_WEB_SENDER_ID: ${{ vars.FIREBASE_WEB_SENDER_ID }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -30,24 +99,4 @@ jobs:
           docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667 -shellcheck= .github/workflows/*.yml
           docker run --rm -v "$PWD:/repo" -w /repo koalaman/shellcheck:v0.11.0@sha256:61862eba1fcf09a484ebcc6feea46f1782532571a34ed51fedf90dd25f925a8d -S warning -e SC1091 scripts/*.sh platform/*.sh tests/*.sh
       - name: Ship and reconcile production
-        run: bash scripts/ship.sh
-        env:
-          DEPLOY_MODE: ${{ inputs.mode }}
-          DEPLOY_ROOT: ${{ vars.DEPLOY_ROOT || '/opt/womanup' }}
-          VPS_SSH_PORT: ${{ vars.VPS_SSH_PORT || '22' }}
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_USERNAME: ${{ secrets.VPS_USERNAME }}
-          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
-          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
-          GHCR_USERNAME: ${{ vars.GHCR_USERNAME }}
-          GHCR_READ_TOKEN: ${{ secrets.GHCR_READ_TOKEN }}
-          APP_DOMAIN: ${{ vars.APP_DOMAIN || 'womanup.uz' }}
-          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-          BACKEND_SECRETS_JSON: ${{ secrets.BACKEND_SECRETS_JSON }}
-          BACKEND_VARS_JSON: ${{ vars.BACKEND_VARS_JSON }}
-          FIREBASE_WEB_API_KEY: ${{ vars.FIREBASE_WEB_API_KEY }}
-          FIREBASE_WEB_AUTH_DOMAIN: ${{ vars.FIREBASE_WEB_AUTH_DOMAIN }}
-          FIREBASE_WEB_PROJECT_ID: ${{ vars.FIREBASE_WEB_PROJECT_ID }}
-          FIREBASE_WEB_APP_ID: ${{ vars.FIREBASE_WEB_APP_ID }}
-          FIREBASE_WEB_STORAGE_BUCKET: ${{ vars.FIREBASE_WEB_STORAGE_BUCKET }}
-          FIREBASE_WEB_SENDER_ID: ${{ vars.FIREBASE_WEB_SENDER_ID }}
+        run: bash scripts/ship.sh "${{ inputs.mode }}"

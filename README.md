@@ -36,30 +36,20 @@ deployment is desired.
 
 | Name | Value |
 | --- | --- |
-| VPS_HOST | VPS IPv4 address or SSH DNS hostname |
-| VPS_USERNAME | Existing SSH user with noninteractive sudo, or root |
 | VPS_SSH_KEY | Dedicated deployment private key, multiline OpenSSH/PEM |
 | VPS_KNOWN_HOSTS | Verified OpenSSH known_hosts entry for this server |
 | GHCR_READ_TOKEN | Classic PAT with read:packages, authorized for both private images |
 | POSTGRES_PASSWORD | The single PostgreSQL password used by the database, API, and migrations: 64-128 hexadecimal characters |
-| BACKEND_SECRETS_JSON | JSON object containing JWT_SECRET_KEY and optional provider secrets |
+| JWT_SECRET_KEY | JWT signing key, at least 48 characters |
+
+Optional named secrets are `FIREBASE_PRIVATE_KEY`, `ANTHROPIC_API_KEY`,
+`SMS_PROVIDER_TOKEN`, `SMTP_PASSWORD`, `EDU_JOB_CLIENT_SECRET`,
+`INVEST_HUB_CLIENT_SECRET`, `COMMERCE_CLIENT_SECRET`, `S3_ACCESS_KEY`, and
+`S3_SECRET_KEY`. Create only those used by the application.
 
 Generate the database password with openssl rand -hex 32.
-Generate a JWT key with openssl rand -hex 48. JWT_SECRET_KEY must be at least
-48 characters. Example shape, replacing every placeholder before use:
-
-```json
-{
-  "JWT_SECRET_KEY": "<generated JWT key>",
-  "ANTHROPIC_API_KEY": "<optional>",
-  "FIREBASE_PRIVATE_KEY": "<optional PEM with escaped newlines>",
-  "SMTP_PASSWORD": "<optional>"
-}
-```
-
-Omit unused optional keys. Other backend secret settings such as SMS_PROVIDER_TOKEN,
-S3_SECRET_KEY, and partner client secrets belong in the same object. Never put
-backend secrets in frontend variables.
+Generate the JWT key with openssl rand -hex 48. Store a Firebase private key with
+literal `\n` separators. Never put backend secrets in frontend variables.
 
 Verify the SSH host key through the VPS console/provider before recording it.
 For a nondefault SSH port the known_hosts hostname is [host]:port. The workflow
@@ -67,13 +57,14 @@ does not trust an unverified ssh-keyscan result or disable host verification.
 
 ### prod environment variables
 
-| Name | Default / purpose |
+| Name | Value / purpose |
 | --- | --- |
-| APP_DOMAIN | womanup.uz; bare hostname, no scheme or path |
-| DEPLOY_ROOT | /opt/womanup; supported format /opt/<lowercase-name> |
-| VPS_SSH_PORT | 22 |
+| APP_DOMAIN | `womanup.uz`; bare hostname, no scheme or path |
+| DEPLOY_ROOT | `/opt/womanup`; supported format `/opt/<lowercase-name>` |
+| VPS_HOST | VPS IPv4 address or SSH DNS hostname |
+| VPS_USERNAME | Existing SSH user with noninteractive sudo, or root |
+| VPS_SSH_PORT | `22`, or the configured SSH port |
 | GHCR_USERNAME | GitHub user owning GHCR_READ_TOKEN |
-| BACKEND_VARS_JSON | Optional JSON object with non-secret backend settings |
 | FIREBASE_WEB_API_KEY | Optional public Firebase web configuration |
 | FIREBASE_WEB_AUTH_DOMAIN | Optional public Firebase web configuration |
 | FIREBASE_WEB_PROJECT_ID | Optional public Firebase web configuration |
@@ -81,11 +72,31 @@ does not trust an unverified ssh-keyscan result or disable host verification.
 | FIREBASE_WEB_STORAGE_BUCKET | Optional public Firebase web configuration |
 | FIREBASE_WEB_SENDER_ID | Optional public Firebase web configuration |
 
-For example, BACKEND_VARS_JSON can contain FIREBASE_PROJECT_ID,
-FIREBASE_CLIENT_EMAIL, SMTP_HOST, SMTP_PORT, SMTP_USER, and AI_MODEL.
-Production mode, debug=false, database connection and same-origin CORS are
-enforced by the renderer. Automated paid news ingestion defaults to disabled.
-Enable NEWS_INGEST_ENABLED explicitly only when that behavior is wanted.
+Optional backend variables use their exact application names, including
+the following. Unset optional entries use backend defaults.
+
+```text
+DB_POOL_SIZE DB_MAX_OVERFLOW
+ACCESS_TOKEN_TTL_MINUTES REFRESH_TOKEN_TTL_DAYS
+OTP_LENGTH OTP_TTL_SECONDS OTP_MAX_ATTEMPTS OTP_RESEND_COOLDOWN_SECONDS
+FIREBASE_PROJECT_ID FIREBASE_CLIENT_EMAIL FIREBASE_ALLOWED_DOMAIN
+DEFAULT_LANGUAGE
+AI_MODEL AI_EFFORT AI_MAX_TOKENS ASSISTANT_GUEST_QUESTIONS
+AI_RAG_TOP_K AI_MIN_CONFIDENCE EMBEDDING_DIMENSIONS
+NEWS_INGEST_ENABLED NEWS_INGEST_INTERVAL_HOURS NEWS_INGEST_MAX_POSTS
+NEWS_INGEST_LOOKBACK_HOURS NEWS_INGEST_DEDUP_DAYS
+NEWS_INGEST_AUTO_PUBLISH NEWS_INGEST_ALLOWED_DOMAINS
+SMS_PROVIDER_URL
+SMTP_HOST SMTP_PORT SMTP_USER SMTP_FROM
+EDU_JOB_BASE_URL EDU_JOB_CLIENT_ID
+INVEST_HUB_BASE_URL INVEST_HUB_CLIENT_ID
+COMMERCE_BASE_URL COMMERCE_CLIENT_ID
+INTEGRATION_TIMEOUT_SECONDS INTEGRATION_MAX_RETRIES
+S3_ENDPOINT_URL S3_BUCKET RATE_LIMIT_PER_MINUTE
+```
+
+Production mode, database connection, debug mode and same-origin CORS are
+enforced by the renderer and are intentionally not configurable.
 
 Firebase web values are returned by the frontend's allowlisted /public-config
 endpoint at runtime. They are public by design. No frontend rebuild or infra-to-app
