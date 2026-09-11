@@ -24,8 +24,6 @@ class ConfigTests(unittest.TestCase):
         values = {
             "APP_DOMAIN": "womanup.uz",
             "POSTGRES_PASSWORD": "a" * 64,
-            "MIGRATION_DB_PASSWORD": "b" * 64,
-            "APP_DB_PASSWORD": "c" * 64,
             "BACKEND_SECRETS_JSON": '{"JWT_SECRET_KEY":"' + "s" * 64 + '","FIREBASE_PRIVATE_KEY":"line1\\nline2","SMTP_PASSWORD":"dollar$quote\'"}',
             "BACKEND_VARS_JSON": '{"NEWS_INGEST_ENABLED":false,"CORS_ORIGINS":"https://wrong.example"}',
             "FIREBASE_WEB_PROJECT_ID": "public-project",
@@ -37,6 +35,7 @@ class ConfigTests(unittest.TestCase):
             frontend = (out / "frontend.env").read_text()
             self.assertIn("ENVIRONMENT=production", backend)
             self.assertIn("CORS_ORIGINS=https://womanup.uz", backend)
+            self.assertIn("DATABASE_URL=postgresql+asyncpg://postgres:" + "a" * 64 + "@postgres:5432/womanup", backend)
             self.assertIn(r"FIREBASE_PRIVATE_KEY=line1\nline2", backend)
             self.assertIn("SMTP_PASSWORD=dollar$quote'", backend)
             self.assertIn("FIREBASE_WEB_PROJECT_ID=public-project", frontend)

@@ -21,12 +21,7 @@ args = args[args.index("-f") + 2:]
 if args[:2] == ["ps", "-q"]:
     print(args[-1])
 elif args[0] == "exec":
-    if "pg_dump" in args:
-        print("verified test dump")
-    elif "pg_restore" in args:
-        sys.stdin.read()
-        print("mock archive listing")
-    elif "psql" in args:
+    if "psql" in args:
         if "-Atc" in args:
             query = args[-1]
             print("t" if "to_regclass" in query else schema)

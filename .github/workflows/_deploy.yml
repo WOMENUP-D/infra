@@ -43,8 +43,6 @@ jobs:
           GHCR_READ_TOKEN: ${{ secrets.GHCR_READ_TOKEN }}
           APP_DOMAIN: ${{ vars.APP_DOMAIN || 'womanup.uz' }}
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-          MIGRATION_DB_PASSWORD: ${{ secrets.MIGRATION_DB_PASSWORD }}
-          APP_DB_PASSWORD: ${{ secrets.APP_DB_PASSWORD }}
           BACKEND_SECRETS_JSON: ${{ secrets.BACKEND_SECRETS_JSON }}
           BACKEND_VARS_JSON: ${{ vars.BACKEND_VARS_JSON }}
           FIREBASE_WEB_API_KEY: ${{ vars.FIREBASE_WEB_API_KEY }}

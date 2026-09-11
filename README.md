@@ -41,12 +41,10 @@ deployment is desired.
 | VPS_SSH_KEY | Dedicated deployment private key, multiline OpenSSH/PEM |
 | VPS_KNOWN_HOSTS | Verified OpenSSH known_hosts entry for this server |
 | GHCR_READ_TOKEN | Classic PAT with read:packages, authorized for both private images |
-| POSTGRES_PASSWORD | PostgreSQL administrator password: 64-128 hexadecimal characters |
-| MIGRATION_DB_PASSWORD | Separate migrator password: 64-128 hexadecimal characters |
-| APP_DB_PASSWORD | Separate application password: 64-128 hexadecimal characters |
+| POSTGRES_PASSWORD | The single PostgreSQL password used by the database, API, and migrations: 64-128 hexadecimal characters |
 | BACKEND_SECRETS_JSON | JSON object containing JWT_SECRET_KEY and optional provider secrets |
 
-Generate each database password independently with openssl rand -hex 32.
+Generate the database password with openssl rand -hex 32.
 Generate a JWT key with openssl rand -hex 48. JWT_SECRET_KEY must be at least
 48 characters. Example shape, replacing every placeholder before use:
 
@@ -119,7 +117,7 @@ application packages; organization PAT/SSO policy may require authorization.
    Open inbound TCP 80/443 and the SSH port in the provider firewall.
 3. Run **Server Bootstrap** from infra main. It requires a fresh Ubuntu 24.04
    amd64 server and sudo-capable key-based SSH access. It installs Docker/Compose,
-   logging defaults, firewall rules, deployment directories and a backup timer.
+   logging defaults, firewall rules, and deployment directories.
    It then initializes PostgreSQL and Caddy and deploys any already published images.
 4. Push/merge backend and frontend changes to main or dispatch their release
    workflows. Their first successful promotions fill the initially empty image files.
@@ -141,8 +139,8 @@ bypass UFW, which is why database and application ports are never published.
 ## Deployment and recovery
 
 The backend image serves both API and worker. Deployment pulls the candidate,
-takes a custom-format database backup, stops API/worker, runs Alembic once with
-the migration role, applies runtime grants, and waits for readiness. The worker
+stops API/worker, runs Alembic once with the same PostgreSQL account used by the
+application, and waits for readiness. The worker
 health check uses a heartbeat after successful database work, with a 30-minute
 tolerance for long ingestion jobs. Frontend uses its own image and health checks.
 
@@ -164,69 +162,33 @@ Server layout under DEPLOY_ROOT:
 - current: active infrastructure release.
 - config: root-only runtime env files; config.previous: previous runtime settings.
 - state: last successful images, configuration hashes and schema version.
-- backups: local custom-format PostgreSQL dumps.
 
 No secret files are committed or uploaded as Actions artifacts. Temporary runner
 and server transport files and registry credentials are removed after successful
 transfer/processing. Interrupted runner/network transfers can leave a root/user-only
 /tmp/womanup.* payload; remove that specific stale directory after investigation.
-Database secrets are applied to roles when platform configuration changes.
-Coordinate credential rotation with deployments; do not edit server env files by hand.
-
-## Backups and replacing a server
-
-Daily backups run around 03:15 UTC using womanup-backup.timer. Every backend
-deployment also takes a pre-migration backup. Completed backups are verified with
-pg_restore --list before becoming visible; backups older than seven days are
-pruned only after a new successful backup. Check failures with:
-
-```bash
-sudo systemctl status womanup-backup.timer womanup-backup.service
-sudo journalctl -u womanup-backup.service
-sudo bash /opt/womanup/current/scripts/backup.sh /opt/womanup daily
-```
-
-Backups are local: they do not survive loss of the VPS. Transfer a verified dump
-to independent storage before decommissioning a machine. An operator can restore
-a transferred dump placed under DEPLOY_ROOT/backups with:
-
-```bash
-sudo bash /opt/womanup/current/scripts/restore.sh /opt/womanup \
-  /opt/womanup/backups/<backup-file>.dump RESTORE
-```
-
-Restore takes a pre-restore backup, stops writers, restores in one transaction,
-and reapplies role grants. Apps remain stopped so the operator can select an image
-compatible with the restored schema and dispatch deployment.
-
-For replacement: preserve the backup and matching image versions; update prod SSH
-secrets and verified host key; bootstrap the new server; transfer and restore the
-dump; point DNS at the replacement; dispatch deployment; verify HTTPS and login.
-Use a maintenance window. Bootstrap can report HTTPS failure until DNS reaches
-the new server, but database initialization and restore remain available.
-Do not delete the old VPS or backups until the new server is verified.
-
-Monitor Actions failures, HTTPS readiness, and the backup timer. This version
-does not install an external uptime monitor or off-server backup service.
+The same PostgreSQL account is used by the container, application, and Alembic.
+Coordinate password rotation with deployments; do not edit server env files by hand.
+This repository does not create, schedule, retain, or restore database backups.
 
 ## Validation
 
 Infra CI runs actionlint, ShellCheck, strict image/config validation, deployment
 simulations (no-op updates, service isolation, migration failure, rollback), and a
-real PostgreSQL role/backup/restore check. Application CI runs promotion race tests,
+real PostgreSQL initialization check. Application CI runs promotion race tests,
 application tests, source/secret/dependency scans and digest-specific image scans.
 Production deployment repeats infra validation before SSH.
 
 ```bash
 python3 -m unittest discover -s tests -v
 python3 scripts/validate_images.py .
-bash tests/database.sh  # requires Docker
+bash tests/database.sh  # requires Docker; checks extensions and single-role access
 ```
 
 The shell simulations require a disposable Linux directory:
 DEPLOY_TEST_ROOT=/opt/womanup-ci. They delete only that test directory's contents.
 Never point that variable at a real deployment root.
 
-Live first-launch, public DNS/TLS, provider authentication, and disaster-recovery
-acceptance must be completed against the configured VPS. Retain successful GHCR
+Live first-launch, public DNS/TLS, and provider authentication checks must be
+completed against the configured VPS. Retain successful GHCR
 digests for rollback; no automatic image/volume pruning runs on production.

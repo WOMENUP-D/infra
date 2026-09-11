@@ -22,14 +22,12 @@ deploy_backend() {
   export BACKEND_IMAGE
   BACKEND_IMAGE=$(sed -n 's/^BACKEND_IMAGE=//p' "$desired")
   c pull backend worker migrate
-  bash "$RELEASE/scripts/backup.sh" "$ROOT" pre-migration
   before=$(revision)
   c stop backend worker
   if ! c run --rm --no-deps migrate; then
-    echo "Migration failed; apps remain stopped. Inspect schema and backup before recovery." >&2
+    echo "Migration failed; apps remain stopped. Inspect the migration before recovery." >&2
     return 1
   fi
-  grant_app
   after=$(revision)
   if c up -d --no-deps --wait --wait-timeout 180 backend worker && public_check /health/ready; then
     cp "$desired" "$ROOT/state/backend.env"

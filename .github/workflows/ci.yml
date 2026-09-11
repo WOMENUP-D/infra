@@ -28,5 +28,5 @@ jobs:
         env:
           CONFIG_DIR: /opt/womanup-ci/config
         run: docker compose --env-file "$CONFIG_DIR/deploy.env" config --quiet
-      - name: PostgreSQL backup and restore
+      - name: PostgreSQL initialization
         run: bash tests/database.sh

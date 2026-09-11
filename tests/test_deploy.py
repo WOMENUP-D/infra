@@ -57,7 +57,6 @@ class DeploymentTests(unittest.TestCase):
     def test_first_deploy_and_unchanged_rerun(self):
         self.run_deploy()
         self.assertTrue((self.root / "state/backend.hash").exists())
-        self.assertTrue(list((self.root / "backups").glob("*.dump")))
         (self.root / "commands.jsonl").write_text("")
         self.run_deploy()
         self.assertFalse(any("up" in c["args"] for c in self.commands()))
