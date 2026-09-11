@@ -4,12 +4,20 @@ source "$(dirname "$0")/common.sh" "${1:-/opt/womanup}"
 lock_server
 python3 "$RELEASE/scripts/validate_images.py" "$RELEASE"
 platform_hash=$(cat "$RELEASE/compose.yml" "$RELEASE/platform/Caddyfile" "$RELEASE/platform/database.sh" "$CONFIG_DIR/postgres.env" "$CONFIG_DIR/deploy.env" | sha256sum | cut -d' ' -f1)
+platform_changed=0
 if [[ ! -f "$ROOT/state/platform.hash" || "$(cat "$ROOT/state/platform.hash")" != "$platform_hash" ]]; then
+  platform_changed=1
+fi
+if (( platform_changed )) || ! healthy postgres; then
   c up -d --wait --wait-timeout 180 postgres
+fi
+if (( platform_changed )); then
   c exec -T postgres bash /docker-entrypoint-initdb.d/10-roles.sh
   c run --rm --no-deps caddy caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
-  c up -d --no-deps caddy
   printf '%s\n' "$platform_hash" > "$ROOT/state/platform.hash"
+fi
+if (( platform_changed )) || ! running caddy; then
+  c up -d --no-deps caddy
 fi
 
 deploy_backend() {
@@ -29,7 +37,8 @@ deploy_backend() {
     return 1
   fi
   after=$(revision)
-  if c up -d --no-deps --wait --wait-timeout 180 backend worker && public_check /health/ready; then
+  if c up -d --no-deps --wait --wait-timeout 180 backend worker \
+    && internal_http_check http://backend:8000/health/ready; then
     cp "$desired" "$ROOT/state/backend.env"
     printf '%s\n' "$hash" > "$ROOT/state/backend.hash"
     printf '%s\n' "$after" > "$ROOT/state/schema"
@@ -40,7 +49,7 @@ deploy_backend() {
       export BACKEND_IMAGE="$old_image"
       cp "$ROOT/config.previous/backend.env" "$CONFIG_DIR/backend.env"
       c up -d --no-deps --wait --wait-timeout 180 backend worker
-      public_check /health/ready
+      internal_http_check http://backend:8000/health/ready
       echo "Previous backend restored; desired release remains failed." >&2
     else
       echo "Automatic rollback unavailable after schema/credential changes or on first deployment." >&2
@@ -59,7 +68,9 @@ deploy_frontend() {
   export FRONTEND_IMAGE
   FRONTEND_IMAGE=$(sed -n 's/^FRONTEND_IMAGE=//p' "$desired")
   c pull frontend
-  if c up -d --no-deps --wait --wait-timeout 180 frontend && public_check /healthz && public_check /; then
+  if c up -d --no-deps --wait --wait-timeout 180 frontend \
+    && internal_http_check http://frontend:3000/healthz \
+    && internal_http_check http://frontend:3000/; then
     cp "$desired" "$ROOT/state/frontend.env"
     printf '%s\n' "$hash" > "$ROOT/state/frontend.hash"
     echo "Frontend healthy."
@@ -68,7 +79,7 @@ deploy_frontend() {
       export FRONTEND_IMAGE="$old_image"
       cp "$ROOT/config.previous/frontend.env" "$CONFIG_DIR/frontend.env"
       c up -d --no-deps --wait --wait-timeout 180 frontend
-      public_check /healthz
+      internal_http_check http://frontend:3000/healthz
       echo "Previous frontend restored; desired release remains failed." >&2
     else
       c stop frontend

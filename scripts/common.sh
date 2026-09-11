@@ -24,15 +24,24 @@ healthy() {
   id=$(c ps -q "$1")
   [[ -n "$id" ]] && [[ "$(docker inspect --format '{{.State.Health.Status}}' "$id")" == healthy ]]
 }
+running() {
+  local id
+  id=$(c ps -q "$1")
+  [[ -n "$id" ]] && [[ "$(docker inspect --format '{{.State.Running}}' "$id")" == true ]]
+}
 revision() {
   if [[ "$(c exec -T postgres psql -U postgres -d womanup -Atc "SELECT to_regclass('public.alembic_version') IS NOT NULL")" == t ]]; then
     c exec -T postgres psql -U postgres -d womanup -Atc 'SELECT version_num FROM alembic_version ORDER BY version_num'
   fi
 }
-public_check() {
-  local path="$1"
-  local domain
-  domain=$(sed -n 's/^APP_DOMAIN=//p' "$CONFIG_DIR/deploy.env")
-  curl --fail --silent --show-error --retry 12 --retry-all-errors --retry-delay 5 \
-    --connect-timeout 5 --max-time 15 "https://$domain$path" >/dev/null
+internal_http_check() {
+  local url="$1"
+  for _ in {1..12}; do
+    if c exec -T caddy wget -qO /dev/null "$url"; then
+      return 0
+    fi
+    sleep 5
+  done
+  echo "Internal HTTP check failed: $url" >&2
+  return 1
 }

@@ -32,8 +32,6 @@ class DeploymentTests(unittest.TestCase):
         self.bin.mkdir()
         shutil.copy(SOURCE / "tests/mock-docker.py", self.bin / "docker")
         (self.bin / "docker").chmod(0o755)
-        (self.bin / "curl").write_text("#!/bin/sh\nexit 0\n")
-        (self.bin / "curl").chmod(0o755)
         self.env = dict(os.environ, MOCK_ROOT=str(self.root), RELEASE=str(self.release),
                         PATH=str(self.bin) + os.pathsep + os.environ["PATH"])
         self.image("backend", "a")

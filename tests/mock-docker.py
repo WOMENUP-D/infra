@@ -12,7 +12,7 @@ schema = state_file.read_text() if state_file.exists() else "0012"
 with (root / "commands.jsonl").open("a") as log:
     log.write(json.dumps({"args": args, "backend": os.getenv("BACKEND_IMAGE"), "frontend": os.getenv("FRONTEND_IMAGE")}) + "\n")
 if args[0] == "inspect":
-    print("healthy")
+    print("true" if "State.Running" in args[-2] else "healthy")
     sys.exit()
 if args[0] == "login":
     sys.stdin.read()

@@ -151,7 +151,9 @@ bypass UFW, which is why database and application ports are never published.
 
 The backend image serves both API and worker. Deployment pulls the candidate,
 stops API/worker, runs Alembic once with the same PostgreSQL account used by the
-application, and waits for readiness. The worker
+application, and waits for Compose health plus HTTP readiness over the private
+Docker network. Public DNS and HTTPS are verified separately after deployment and
+never determine rollback. The worker
 health check uses a heartbeat after successful database work, with a 30-minute
 tolerance for long ingestion jobs. Frontend uses its own image and health checks.
 
