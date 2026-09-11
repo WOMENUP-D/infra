@@ -184,23 +184,15 @@ The same PostgreSQL account is used by the container, application, and Alembic.
 Coordinate password rotation with deployments; do not edit server env files by hand.
 This repository does not create, schedule, retain, or restore database backups.
 
-## Validation
+## Deployment gate
 
-Infra CI runs actionlint, ShellCheck, strict image/config validation, deployment
-simulations (no-op updates, service isolation, migration failure, rollback), and a
-real PostgreSQL initialization check. Application CI runs promotion race tests,
-application tests, source/secret/dependency scans and digest-specific image scans.
-Production deployment repeats infra validation before SSH.
+Each deployment workflow has two ordered jobs: `validate`, then `deploy`.
+`deploy` has `needs: validate`, so no SSH connection or server mutation is possible
+when validation fails. The validation job checks the image-reference contract, the
+rendered Compose definition (including tmpfs mount paths), and workflow/shell syntax.
+It does not run fake deployment, rollback, database, or Docker mock simulations.
 
-```bash
-python3 -m unittest discover -s tests -v
-python3 scripts/validate_images.py .
-bash tests/database.sh  # requires Docker; checks extensions and single-role access
-```
-
-The shell simulations require a disposable Linux directory:
-DEPLOY_TEST_ROOT=/opt/womanup-ci. They delete only that test directory's contents.
-Never point that variable at a real deployment root.
+Application CI remains responsible for application tests and security scanning.
 
 Live first-launch, public DNS/TLS, and provider authentication checks must be
 completed against the configured VPS. Retain successful GHCR

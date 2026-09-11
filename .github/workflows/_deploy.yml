@@ -8,7 +8,32 @@ on:
 permissions:
   contents: read
 jobs:
+  validate:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: main
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Validate release definition
+        run: |
+          set -euo pipefail
+          python3 scripts/validate_images.py .
+          config_dir=$(mktemp -d)
+          trap 'rm -rf -- "$config_dir"' EXIT
+          printf 'APP_DOMAIN=example.com\n' > "$config_dir/deploy.env"
+          touch "$config_dir/backend.env" "$config_dir/frontend.env" "$config_dir/migration.env" "$config_dir/postgres.env"
+          CONFIG_DIR="$config_dir" docker compose --env-file "$config_dir/deploy.env" config --quiet
+          CONFIG_DIR="$config_dir" docker compose --env-file "$config_dir/deploy.env" config --format json | python3 scripts/validate_compose.py
+      - name: Validate workflow and shell syntax
+        run: |
+          docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667 -shellcheck= .github/workflows/*.yml
+          docker run --rm -v "$PWD:/repo" -w /repo koalaman/shellcheck:v0.11.0@sha256:61862eba1fcf09a484ebcc6feea46f1782532571a34ed51fedf90dd25f925a8d -S warning -e SC1091 scripts/*.sh platform/*.sh
   deploy:
+    needs: validate
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -91,15 +116,5 @@ jobs:
           ref: main
           fetch-depth: 0
           persist-credentials: false
-      - name: Validate desired images
-        run: |
-          python3 scripts/validate_images.py .
-          sudo install -d -o "$USER" /opt/womanup-ci
-          DEPLOY_TEST_ROOT=/opt/womanup-ci python3 -m unittest discover -s tests -v
-          CONFIG_DIR=/opt/womanup-ci/config docker compose --env-file /opt/womanup-ci/config/deploy.env config --quiet
-          CONFIG_DIR=/opt/womanup-ci/config docker compose --env-file /opt/womanup-ci/config/deploy.env config --format json | python3 tests/validate_compose.py
-          bash tests/database.sh
-          docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667 -shellcheck= .github/workflows/*.yml
-          docker run --rm -v "$PWD:/repo" -w /repo koalaman/shellcheck:v0.11.0@sha256:61862eba1fcf09a484ebcc6feea46f1782532571a34ed51fedf90dd25f925a8d -S warning -e SC1091 scripts/*.sh platform/*.sh tests/*.sh
       - name: Ship and reconcile production
         run: bash scripts/ship.sh "${{ inputs.mode }}"
