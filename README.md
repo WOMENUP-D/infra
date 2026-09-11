@@ -126,8 +126,8 @@ application packages; organization PAT/SSO policy may require authorization.
    respective repositories. Create the prod environment and configure values above.
 2. Point womanup.uz DNS A at the VPS. Remove or correct any stale AAAA record.
    Open inbound TCP 80/443 and the SSH port in the provider firewall.
-3. Run **Server Bootstrap** from infra main. It requires a fresh Ubuntu 24.04
-   amd64 server and sudo-capable key-based SSH access. It installs Docker/Compose,
+3. Run **Server Bootstrap** from infra main. It requires an Ubuntu server and
+   sudo-capable key-based SSH access. It installs Docker/Compose,
    logging defaults, firewall rules, and deployment directories.
    It then initializes PostgreSQL and Caddy and deploys any already published images.
 4. Push/merge backend and frontend changes to main or dispatch their release

@@ -6,9 +6,7 @@ SSH_PORT="${2:-22}"
 [[ "$SSH_PORT" =~ ^[0-9]{1,5}$ ]] && (( SSH_PORT > 0 && SSH_PORT < 65536 ))
 [[ $EUID == 0 ]] || { echo "Bootstrap requires sudo" >&2; exit 1; }
 source /etc/os-release
-[[ "$ID" == ubuntu && "$VERSION_ID" == 24.04 && "$(dpkg --print-architecture)" == amd64 ]] || {
-  echo "Supported baseline: Ubuntu 24.04 amd64" >&2; exit 1;
-}
+architecture=$(dpkg --print-architecture)
 install -d -m 0700 "$ROOT"
 exec 9>"$ROOT/deploy.lock"
 flock -w 1800 9
@@ -22,7 +20,8 @@ if [[ ! -f /etc/apt/keyrings/docker.asc ]]; then
   [[ "$fingerprint" == 9DC858229FC7DD38854AE2D88D81803C0EBFCD88 ]]
   chmod a+r /etc/apt/keyrings/docker.asc
 fi
-printf '%s\n' 'deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu noble stable' > /etc/apt/sources.list.d/docker.list
+printf 'deb [arch=%s signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu %s stable\n' \
+  "$architecture" "$VERSION_CODENAME" > /etc/apt/sources.list.d/docker.list
 apt-get update
 apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 systemctl enable --now docker
