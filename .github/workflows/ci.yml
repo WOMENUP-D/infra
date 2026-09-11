@@ -1,8 +1,6 @@
 name: Infra checks
 on:
   pull_request:
-  push:
-    branches: [main]
   workflow_dispatch:
 permissions:
   contents: read
@@ -27,6 +25,8 @@ jobs:
       - name: Compose validation
         env:
           CONFIG_DIR: /opt/womanup-ci/config
-        run: docker compose --env-file "$CONFIG_DIR/deploy.env" config --quiet
+        run: |
+          docker compose --env-file "$CONFIG_DIR/deploy.env" config --quiet
+          docker compose --env-file "$CONFIG_DIR/deploy.env" config --format json | python3 tests/validate_compose.py
       - name: PostgreSQL initialization
         run: bash tests/database.sh

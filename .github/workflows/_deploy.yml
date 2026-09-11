@@ -96,6 +96,9 @@ jobs:
           python3 scripts/validate_images.py .
           sudo install -d -o "$USER" /opt/womanup-ci
           DEPLOY_TEST_ROOT=/opt/womanup-ci python3 -m unittest discover -s tests -v
+          CONFIG_DIR=/opt/womanup-ci/config docker compose --env-file /opt/womanup-ci/config/deploy.env config --quiet
+          CONFIG_DIR=/opt/womanup-ci/config docker compose --env-file /opt/womanup-ci/config/deploy.env config --format json | python3 tests/validate_compose.py
+          bash tests/database.sh
           docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667 -shellcheck= .github/workflows/*.yml
           docker run --rm -v "$PWD:/repo" -w /repo koalaman/shellcheck:v0.11.0@sha256:61862eba1fcf09a484ebcc6feea46f1782532571a34ed51fedf90dd25f925a8d -S warning -e SC1091 scripts/*.sh platform/*.sh tests/*.sh
       - name: Ship and reconcile production
