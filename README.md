@@ -36,6 +36,8 @@ deployment is desired.
 
 | Name | Value |
 | --- | --- |
+| VPS_HOST | VPS IPv4 address or SSH DNS hostname |
+| VPS_USERNAME | Existing SSH user with noninteractive sudo, or root |
 | VPS_SSH_KEY | Dedicated deployment private key, multiline OpenSSH/PEM |
 | VPS_KNOWN_HOSTS | Verified OpenSSH known_hosts entry for this server |
 | GHCR_READ_TOKEN | Classic PAT with read:packages, authorized for both private images |
@@ -61,8 +63,6 @@ does not trust an unverified ssh-keyscan result or disable host verification.
 | --- | --- |
 | APP_DOMAIN | `womanup.uz`; bare hostname, no scheme or path |
 | DEPLOY_ROOT | `/opt/womanup`; supported format `/opt/<lowercase-name>` |
-| VPS_HOST | VPS IPv4 address or SSH DNS hostname |
-| VPS_USERNAME | Existing SSH user with noninteractive sudo, or root |
 | VPS_SSH_PORT | `22`, or the configured SSH port |
 | GHCR_USERNAME | GitHub user owning GHCR_READ_TOKEN |
 | FIREBASE_WEB_API_KEY | Optional public Firebase web configuration |

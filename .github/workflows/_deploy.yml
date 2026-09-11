@@ -19,8 +19,8 @@ jobs:
     env:
       DEPLOY_ROOT: ${{ vars.DEPLOY_ROOT }}
       VPS_SSH_PORT: ${{ vars.VPS_SSH_PORT }}
-      VPS_HOST: ${{ vars.VPS_HOST }}
-      VPS_USERNAME: ${{ vars.VPS_USERNAME }}
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_USERNAME: ${{ secrets.VPS_USERNAME }}
       VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
       VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
       GHCR_USERNAME: ${{ vars.GHCR_USERNAME }}
