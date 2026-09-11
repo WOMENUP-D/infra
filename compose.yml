@@ -1,0 +1,104 @@
+name: womanup
+x-app: &app
+  restart: unless-stopped
+  init: true
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  tmpfs: [/tmp:rw,noexec,nosuid,size=64m,mode=1777]
+  logging:
+    driver: local
+    options: {max-size: "10m", max-file: "3"}
+services:
+  postgres:
+    image: pgvector/pgvector:pg16@sha256:ccc6e83d6e35e931dc7c5def2022729d5a6c370318d099181995567ff1fb4d6b
+    restart: unless-stopped
+    shm_size: 256mb
+    env_file:
+      - path: ${CONFIG_DIR:?}/postgres.env
+        format: raw
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./platform/database.sh:/docker-entrypoint-initdb.d/10-roles.sh:ro
+    networks: [database]
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U postgres -d womanup"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    logging:
+      driver: local
+      options: {max-size: "10m", max-file: "3"}
+  migrate:
+    <<: *app
+    image: ${BACKEND_IMAGE:-ghcr.io/womenup-d/backend:unconfigured}
+    restart: "no"
+    profiles: [tools]
+    env_file:
+      - path: ${CONFIG_DIR:?}/backend.env
+        format: raw
+      - path: ${CONFIG_DIR:?}/migration.env
+        format: raw
+    command: [alembic, upgrade, head]
+    healthcheck: {disable: true}
+    networks: [database]
+  backend:
+    <<: *app
+    image: ${BACKEND_IMAGE:-ghcr.io/womenup-d/backend:unconfigured}
+    env_file:
+      - path: ${CONFIG_DIR:?}/backend.env
+        format: raw
+    depends_on:
+      postgres: {condition: service_healthy}
+    networks: [edge, database]
+  worker:
+    <<: *app
+    image: ${BACKEND_IMAGE:-ghcr.io/womenup-d/backend:unconfigured}
+    env_file:
+      - path: ${CONFIG_DIR:?}/backend.env
+        format: raw
+    environment:
+      WORKER_HEARTBEAT_FILE: /tmp/worker-heartbeat
+    command: [python, -m, app.worker]
+    healthcheck:
+      test: [CMD, python, -c, "import os,time; assert time.time()-os.stat('/tmp/worker-heartbeat').st_mtime < 1800"]
+      interval: 15s
+      timeout: 5s
+      start_period: 60s
+      retries: 5
+    depends_on:
+      postgres: {condition: service_healthy}
+    networks: [database, outbound]
+  frontend:
+    <<: *app
+    image: ${FRONTEND_IMAGE:-ghcr.io/womenup-d/frontend:unconfigured}
+    env_file:
+      - path: ${CONFIG_DIR:?}/frontend.env
+        format: raw
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m,mode=1777
+      - /app/.next/cache:rw,noexec,nosuid,size=128m,uid=1000,gid=1000
+    networks: [edge]
+  caddy:
+    image: caddy:2-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648
+    restart: unless-stopped
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?}
+    ports: ["80:80", "443:443"]
+    volumes:
+      - ./platform/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [edge]
+    logging:
+      driver: local
+      options: {max-size: "10m", max-file: "3"}
+networks:
+  edge:
+  database:
+    internal: true
+  outbound:
+volumes:
+  postgres_data:
+  caddy_data:
+  caddy_config:

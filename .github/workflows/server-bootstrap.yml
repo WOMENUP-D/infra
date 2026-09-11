@@ -1,0 +1,11 @@
+name: Server Bootstrap
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  bootstrap:
+    uses: ./.github/workflows/_deploy.yml
+    with:
+      mode: bootstrap
+    secrets: inherit

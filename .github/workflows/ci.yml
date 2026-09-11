@@ -1,0 +1,32 @@
+name: Infra checks
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Workflow and shell checks
+        run: |
+          docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667 -shellcheck= .github/workflows/*.yml
+          docker run --rm -v "$PWD:/repo" -w /repo koalaman/shellcheck:v0.11.0@sha256:61862eba1fcf09a484ebcc6feea46f1782532571a34ed51fedf90dd25f925a8d -S warning -e SC1091 scripts/*.sh platform/*.sh tests/*.sh
+      - name: Configuration and deployment simulations
+        run: |
+          sudo install -d -o "$USER" /opt/womanup-ci
+          DEPLOY_TEST_ROOT=/opt/womanup-ci python3 -m unittest discover -s tests -v
+          python3 scripts/validate_images.py .
+      - name: Compose validation
+        env:
+          CONFIG_DIR: /opt/womanup-ci/config
+        run: docker compose --env-file "$CONFIG_DIR/deploy.env" config --quiet
+      - name: PostgreSQL backup and restore
+        run: bash tests/database.sh

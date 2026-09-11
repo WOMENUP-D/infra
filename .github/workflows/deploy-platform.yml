@@ -1,0 +1,17 @@
+name: deploy-platform
+on:
+  push:
+    branches: [main]
+    paths:
+      - compose.yml
+      - platform/**
+      - scripts/**
+      - .github/workflows/_deploy.yml
+      - .github/workflows/deploy-platform.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  deploy:
+    uses: ./.github/workflows/_deploy.yml
+    secrets: inherit

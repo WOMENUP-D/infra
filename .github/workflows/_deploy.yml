@@ -1,0 +1,55 @@
+name: Production deploy implementation
+on:
+  workflow_call:
+    inputs:
+      mode:
+        type: string
+        default: deploy
+permissions:
+  contents: read
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    environment: prod
+    concurrency:
+      group: womanup-prod-server
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate desired images
+        run: |
+          python3 scripts/validate_images.py .
+          sudo install -d -o "$USER" /opt/womanup-ci
+          DEPLOY_TEST_ROOT=/opt/womanup-ci python3 -m unittest discover -s tests -v
+          docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667 -shellcheck= .github/workflows/*.yml
+          docker run --rm -v "$PWD:/repo" -w /repo koalaman/shellcheck:v0.11.0@sha256:61862eba1fcf09a484ebcc6feea46f1782532571a34ed51fedf90dd25f925a8d -S warning -e SC1091 scripts/*.sh platform/*.sh tests/*.sh
+      - name: Ship and reconcile production
+        run: bash scripts/ship.sh
+        env:
+          DEPLOY_MODE: ${{ inputs.mode }}
+          DEPLOY_ROOT: ${{ vars.DEPLOY_ROOT || '/opt/womanup' }}
+          VPS_SSH_PORT: ${{ vars.VPS_SSH_PORT || '22' }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USERNAME: ${{ secrets.VPS_USERNAME }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+          GHCR_USERNAME: ${{ vars.GHCR_USERNAME }}
+          GHCR_READ_TOKEN: ${{ secrets.GHCR_READ_TOKEN }}
+          APP_DOMAIN: ${{ vars.APP_DOMAIN || 'womanup.uz' }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          MIGRATION_DB_PASSWORD: ${{ secrets.MIGRATION_DB_PASSWORD }}
+          APP_DB_PASSWORD: ${{ secrets.APP_DB_PASSWORD }}
+          BACKEND_SECRETS_JSON: ${{ secrets.BACKEND_SECRETS_JSON }}
+          BACKEND_VARS_JSON: ${{ vars.BACKEND_VARS_JSON }}
+          FIREBASE_WEB_API_KEY: ${{ vars.FIREBASE_WEB_API_KEY }}
+          FIREBASE_WEB_AUTH_DOMAIN: ${{ vars.FIREBASE_WEB_AUTH_DOMAIN }}
+          FIREBASE_WEB_PROJECT_ID: ${{ vars.FIREBASE_WEB_PROJECT_ID }}
+          FIREBASE_WEB_APP_ID: ${{ vars.FIREBASE_WEB_APP_ID }}
+          FIREBASE_WEB_STORAGE_BUCKET: ${{ vars.FIREBASE_WEB_STORAGE_BUCKET }}
+          FIREBASE_WEB_SENDER_ID: ${{ vars.FIREBASE_WEB_SENDER_ID }}
