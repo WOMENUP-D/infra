@@ -56,8 +56,11 @@ jobs:
       FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       SMS_PROVIDER_TOKEN: ${{ secrets.SMS_PROVIDER_TOKEN }}
+      SMTP_HOST: ${{ secrets.SMTP_HOST }}
+      SMTP_PORT: ${{ secrets.SMTP_PORT }}
       SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
       SMTP_USER: ${{ secrets.SMTP_USER }}
+      SMTP_FROM: ${{ secrets.SMTP_FROM }}
       EDU_JOB_CLIENT_SECRET: ${{ secrets.EDU_JOB_CLIENT_SECRET }}
       INVEST_HUB_CLIENT_SECRET: ${{ secrets.INVEST_HUB_CLIENT_SECRET }}
       COMMERCE_CLIENT_SECRET: ${{ secrets.COMMERCE_CLIENT_SECRET }}
@@ -90,9 +93,6 @@ jobs:
       NEWS_INGEST_AUTO_PUBLISH: ${{ vars.NEWS_INGEST_AUTO_PUBLISH }}
       NEWS_INGEST_ALLOWED_DOMAINS: ${{ vars.NEWS_INGEST_ALLOWED_DOMAINS }}
       SMS_PROVIDER_URL: ${{ vars.SMS_PROVIDER_URL }}
-      SMTP_HOST: ${{ vars.SMTP_HOST }}
-      SMTP_PORT: ${{ vars.SMTP_PORT }}
-      SMTP_FROM: ${{ vars.SMTP_FROM }}
       EDU_JOB_BASE_URL: ${{ vars.EDU_JOB_BASE_URL }}
       EDU_JOB_CLIENT_ID: ${{ vars.EDU_JOB_CLIENT_ID }}
       INVEST_HUB_BASE_URL: ${{ vars.INVEST_HUB_BASE_URL }}
