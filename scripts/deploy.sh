@@ -30,10 +30,14 @@ deploy_backend() {
   export BACKEND_IMAGE
   BACKEND_IMAGE=$(sed -n 's/^BACKEND_IMAGE=//p' "$desired")
   c pull backend worker migrate
+  if ! bash "$RELEASE/scripts/backup.sh" "$ROOT" pre-migration; then
+    echo "No pre-migration backup could be taken; the running release was left untouched." >&2
+    return 1
+  fi
   before=$(revision)
   c stop backend worker
   if ! c run --rm --no-deps migrate; then
-    echo "Migration failed; apps remain stopped. Inspect the migration before recovery." >&2
+    echo "Migration failed; apps remain stopped. Inspect the migration, and the pre-migration backup under $ROOT/backups, before recovery." >&2
     return 1
   fi
   after=$(revision)
