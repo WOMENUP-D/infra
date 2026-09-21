@@ -63,9 +63,14 @@ def test_the_restore_cannot_be_run_by_accident():
     assert RESTORE.index("pg_restore --list") < RESTORE.index("c stop backend worker")
     assert RESTORE.index("backup.sh") < RESTORE.index("c stop backend worker")
     assert "pre-restore" in RESTORE
-    # Nothing calls it on its own.
+    # Nothing calls it on its own. Pointing the operator at it is fine; running
+    # it is not.
     for name in ("deploy.sh", "receive.sh", "ship.sh", "bootstrap.sh"):
-        assert "restore.sh" not in (SCRIPTS / name).read_text(), name
+        for line in (SCRIPTS / name).read_text().splitlines():
+            stripped = line.strip()
+            if stripped.startswith(("echo", "printf", "#")):
+                continue
+            assert "restore.sh" not in stripped, f"{name}: {stripped}"
 
 
 def test_the_server_installs_the_nightly_timer():
