@@ -28,6 +28,11 @@ jobs:
           touch "$config_dir/backend.env" "$config_dir/frontend.env" "$config_dir/migration.env" "$config_dir/postgres.env"
           CONFIG_DIR="$config_dir" docker compose --env-file "$config_dir/deploy.env" config --quiet
           CONFIG_DIR="$config_dir" docker compose --env-file "$config_dir/deploy.env" config --format json | python3 scripts/validate_compose.py
+      - name: Check the configuration renderer and the deploy order
+        run: |
+          set -euo pipefail
+          python3 scripts/test_render_config.py
+          python3 scripts/test_deploy_order.py
       - name: Validate workflow and shell syntax
         run: |
           docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667 -shellcheck= .github/workflows/*.yml

@@ -20,6 +20,23 @@ if (( platform_changed )) || ! running caddy; then
   c up -d --no-deps caddy
 fi
 
+restore_backend() {
+  # Put the last release that was known to work back in service, with the
+  # configuration it worked with. Only sound while the schema is unchanged,
+  # which every caller checks first.
+  local old_image="$1"
+  [[ -n "$old_image" ]] || { echo "No previous backend image recorded." >&2; return 1; }
+  cmp -s "$CONFIG_DIR/postgres.env" "$ROOT/config.previous/postgres.env" || {
+    echo "Database credentials changed; not restoring the previous release." >&2
+    return 1
+  }
+  export BACKEND_IMAGE="$old_image"
+  [[ -f "$ROOT/config.previous/backend.env" ]] && cp "$ROOT/config.previous/backend.env" "$CONFIG_DIR/backend.env"
+  c up -d --no-deps --wait --wait-timeout 180 backend worker \
+    && internal_http_check http://backend:8000/health/ready \
+    && echo "Previous backend restored; desired release remains failed." >&2
+}
+
 deploy_backend() {
   local desired="$RELEASE/apps/backend/image.env" old_image before after hash
   if ! grep -q '^BACKEND_IMAGE=' "$desired"; then return; fi
@@ -30,10 +47,25 @@ deploy_backend() {
   export BACKEND_IMAGE
   BACKEND_IMAGE=$(sed -n 's/^BACKEND_IMAGE=//p' "$desired")
   c pull backend worker migrate
+  # Ask before breaking anything: the incoming image reads the rendered
+  # configuration it would run with, and the migration's own settings, while
+  # the current release keeps serving. A release that cannot start is refused
+  # here, where refusing costs nothing.
+  if ! c run --rm --no-deps -T migrate python - < "$RELEASE/scripts/preflight.py"; then
+    echo "Preflight failed; the running release was left untouched." >&2
+    return 1
+  fi
   before=$(revision)
   c stop backend worker
   if ! c run --rm --no-deps migrate; then
-    echo "Migration failed; apps remain stopped. Inspect the migration before recovery." >&2
+    after=$(revision)
+    if [[ "$before" == "$after" ]]; then
+      echo "Migration failed without changing the schema; restoring the running release." >&2
+      restore_backend "$old_image" || echo "Could not restore the previous release." >&2
+    else
+      echo "Migration failed after changing the schema; apps remain stopped." >&2
+      echo "Restore from a backup or finish the migration by hand before recovery." >&2
+    fi
     return 1
   fi
   after=$(revision)
@@ -45,14 +77,10 @@ deploy_backend() {
     echo "Backend and worker healthy."
   else
     c stop backend worker
-    if [[ -n "$old_image" && "$before" == "$after" ]] && cmp -s "$CONFIG_DIR/postgres.env" "$ROOT/config.previous/postgres.env"; then
-      export BACKEND_IMAGE="$old_image"
-      cp "$ROOT/config.previous/backend.env" "$CONFIG_DIR/backend.env"
-      c up -d --no-deps --wait --wait-timeout 180 backend worker
-      internal_http_check http://backend:8000/health/ready
-      echo "Previous backend restored; desired release remains failed." >&2
+    if [[ "$before" == "$after" ]]; then
+      restore_backend "$old_image" || echo "Automatic rollback unavailable." >&2
     else
-      echo "Automatic rollback unavailable after schema/credential changes or on first deployment." >&2
+      echo "Automatic rollback unavailable after a schema change." >&2
     fi
     return 1
   fi
@@ -91,5 +119,10 @@ deploy_frontend() {
 # Always reconcile both files: GitHub may coalesce pending runs from different apps.
 deploy_backend
 deploy_frontend
+# Both apps are up on this configuration, so it becomes the one to fall back
+# to. Keeping this until the end is the point: a deploy that fails must leave
+# the last configuration that worked untouched, not overwrite it with the one
+# that just failed.
+cp -a "$CONFIG_DIR/." "$ROOT/config.previous/"
 c ps
 echo "Reconciled $(basename "$(readlink -f "$RELEASE")")"
