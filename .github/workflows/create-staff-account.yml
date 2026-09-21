@@ -1,0 +1,70 @@
+name: Create staff account
+# Opens an account for the admin panel, or sets a new password on one, without
+# SSH. The password comes from the STAFF_ACCOUNT_PASSWORD secret in the prod
+# environment; delete that secret once the account works.
+on:
+  workflow_dispatch:
+    inputs:
+      email:
+        description: Sign-in address for the admin panel
+        required: true
+        default: admin@womanup.uz
+      role:
+        description: Role to grant
+        type: choice
+        options: [admin, regional_coordinator, moderator, trainer]
+        default: admin
+permissions:
+  contents: read
+jobs:
+  create:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: prod
+    concurrency:
+      group: womanup-prod-server
+      cancel-in-progress: false
+    env:
+      DEPLOY_ROOT: ${{ vars.DEPLOY_ROOT }}
+      VPS_SSH_PORT: ${{ vars.VPS_SSH_PORT }}
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_USERNAME: ${{ secrets.VPS_USERNAME }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+      STAFF_PASSWORD: ${{ secrets.STAFF_ACCOUNT_PASSWORD }}
+      EMAIL: ${{ inputs.email }}
+      ROLE: ${{ inputs.role }}
+    steps:
+      - name: Open the account on the server
+        run: |
+          set -euo pipefail
+          umask 077
+          : "${VPS_HOST:?}" "${VPS_USERNAME:?}" "${VPS_SSH_KEY:?}" "${VPS_KNOWN_HOSTS:?}"
+          if [[ -z "$STAFF_PASSWORD" ]]; then
+            echo "::error::Set the STAFF_ACCOUNT_PASSWORD secret in the prod environment, then run this again."
+            exit 1
+          fi
+          [[ "$DEPLOY_ROOT" =~ ^/opt/[a-z0-9-]+$ ]]
+          [[ "$VPS_SSH_PORT" =~ ^[0-9]{1,5}$ ]]
+          [[ "$VPS_HOST" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*$ ]]
+          [[ "$VPS_USERNAME" =~ ^[a-z_][a-z0-9_-]*$ ]]
+          # Both are placed in the remote command line, so both are checked
+          # against a pattern that cannot contain a quote first.
+          if [[ ! "$EMAIL" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]]; then
+            echo "::error::Not an e-mail address."
+            exit 1
+          fi
+          [[ "$ROLE" =~ ^(admin|regional_coordinator|moderator|trainer)$ ]]
+          temp=$(mktemp -d)
+          trap 'rm -rf -- "$temp"' EXIT
+          printf '%s\n' "$VPS_SSH_KEY" > "$temp/key"
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > "$temp/known_hosts"
+          ssh_args=(-i "$temp/key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=$temp/known_hosts" -o ConnectTimeout=15 -p "$VPS_SSH_PORT")
+          # The password travels on stdin, never in an argument.
+          # The remote command is built here on purpose; every value in it was
+          # checked against a pattern above.
+          # shellcheck disable=SC2029
+          printf '%s\n' "$STAFF_PASSWORD" | ssh "${ssh_args[@]}" "$VPS_USERNAME@$VPS_HOST" \
+            "sudo -n bash '$DEPLOY_ROOT/current/scripts/create_staff.sh' '$DEPLOY_ROOT' '$EMAIL' '$ROLE'"
+          echo "::notice::Signed in to /admin/login? Then delete the STAFF_ACCOUNT_PASSWORD secret."
