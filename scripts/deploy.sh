@@ -55,6 +55,12 @@ deploy_backend() {
     echo "Preflight failed; the running release was left untouched." >&2
     return 1
   fi
+  # Then keep a copy of what the migration is about to change. Still nothing
+  # has been stopped, so a backup that cannot be taken costs nothing either.
+  if ! bash "$RELEASE/scripts/backup.sh" "$ROOT" pre-migration; then
+    echo "No pre-migration backup could be taken; the running release was left untouched." >&2
+    return 1
+  fi
   before=$(revision)
   c stop backend worker
   if ! c run --rm --no-deps migrate; then
@@ -64,7 +70,7 @@ deploy_backend() {
       restore_backend "$old_image" || echo "Could not restore the previous release." >&2
     else
       echo "Migration failed after changing the schema; apps remain stopped." >&2
-      echo "Restore from a backup or finish the migration by hand before recovery." >&2
+      echo "Restore the pre-migration backup under $ROOT/backups with scripts/restore.sh, or finish the migration by hand." >&2
     fi
     return 1
   fi
