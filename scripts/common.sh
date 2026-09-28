@@ -4,7 +4,7 @@ ROOT="${1:-/opt/womanup}"
 [[ "$ROOT" =~ ^/opt/[a-z0-9-]+$ ]] || { echo "Invalid deployment root" >&2; exit 1; }
 RELEASE="${RELEASE:-$ROOT/current}"
 export CONFIG_DIR="$ROOT/config"
-mkdir -p "$ROOT/state"
+mkdir -p "$ROOT/state" "$ROOT/backups"
 touch "$ROOT/state/backend.env" "$ROOT/state/frontend.env"
 c() {
   docker compose --project-name womanup --project-directory "$RELEASE" \

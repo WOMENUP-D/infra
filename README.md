@@ -182,7 +182,37 @@ transfer/processing. Interrupted runner/network transfers can leave a root/user-
 /tmp/womanup.* payload; remove that specific stale directory after investigation.
 The same PostgreSQL account is used by the container, application, and Alembic.
 Coordinate password rotation with deployments; do not edit server env files by hand.
-This repository does not create, schedule, retain, or restore database backups.
+
+### Database backups
+
+`scripts/backup.sh` writes a verified custom-format dump to
+`DEPLOY_ROOT/backups`, root-only, mode 600. A systemd timer installed by the
+bootstrap runs it nightly at 03:15 UTC, and `deploy.sh` runs it once more
+before every migration — a migration that cannot be backed up does not start,
+and the running release is left serving.
+
+A dump is renamed into place only after `pg_restore --list` reads it back, so
+a file that looks like a backup is one. Dumps older than seven days are
+removed once a new one exists, except that the three most recent are always
+kept: a fortnight of failed timers must not be what leaves the server with
+nothing. The backup refuses to run when the volume has less free space than
+the database needs.
+
+Restore is manual and explicit:
+
+```bash
+sudo bash /opt/womanup/current/scripts/restore.sh /opt/womanup \
+  /opt/womanup/backups/<file>.dump RESTORE
+```
+
+It reads the dump before stopping anything, takes a `pre-restore` dump of what
+it is about to replace, restores in a single transaction, and leaves API and
+worker stopped. Afterwards, deploy the backend image the dump was taken with —
+the schema and the application must match.
+
+The dumps live on the same server as the database, which is protection against
+a bad migration, a dropped table or a mistaken delete, but not against losing
+the machine. Copying them off the server is still to be arranged.
 
 ## Deployment gate
 

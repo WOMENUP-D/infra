@@ -25,10 +25,6 @@ printf 'deb [arch=%s signed-by=/etc/apt/keyrings/docker.asc] https://download.do
 apt-get update
 apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 systemctl enable --now docker
-# Remove backup units installed by older WomanUP bootstrap releases.
-systemctl disable --now womanup-backup.timer womanup-backup.service 2>/dev/null || true
-rm -f /etc/systemd/system/womanup-backup.timer /etc/systemd/system/womanup-backup.service
-systemctl daemon-reload
 # Preserve existing daemon settings; bound logs for newly created containers.
 python3 - <<'PY'
 import json
@@ -46,5 +42,29 @@ ufw allow 443/tcp
 ufw default deny incoming
 ufw default allow outgoing
 ufw --force enable
-install -d -m 0700 "$ROOT/config" "$ROOT/releases" "$ROOT/state"
+install -d -m 0700 "$ROOT/config" "$ROOT/releases" "$ROOT/state" "$ROOT/backups"
+# A nightly dump of the database. The deploy takes one of its own before every
+# migration; this is the copy that exists when nobody is deploying.
+cat > /etc/systemd/system/womanup-backup.service <<EOF
+[Unit]
+Description=WomanUP PostgreSQL backup
+After=docker.service
+ConditionPathExists=$ROOT/current/scripts/backup.sh
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/bash $ROOT/current/scripts/backup.sh $ROOT daily
+UMask=0077
+EOF
+cat > /etc/systemd/system/womanup-backup.timer <<'EOF'
+[Unit]
+Description=Daily WomanUP backup
+[Timer]
+OnCalendar=*-*-* 03:15:00 UTC
+Persistent=true
+RandomizedDelaySec=600
+[Install]
+WantedBy=timers.target
+EOF
+systemctl daemon-reload
+systemctl enable --now womanup-backup.timer
 echo "Bootstrap complete; existing volumes and application data were preserved."
