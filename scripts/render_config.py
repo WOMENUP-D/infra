@@ -194,8 +194,9 @@ def render(destination):
         DATABASE_URL=f"postgresql+asyncpg://postgres:{password}@postgres:5432/womanup",
         CORS_ORIGINS=f"https://{domain}",
         # The Host header the API answers to: the site (Caddy forwards the
-        # original Host) and loopback, which the image's own health check uses.
-        ALLOWED_HOSTS=f"{domain},www.{domain},127.0.0.1,localhost",
+        # original Host), loopback for the image's own health check, and the
+        # compose service name, which deploy.sh's internal check uses.
+        ALLOWED_HOSTS=f"{domain},www.{domain},127.0.0.1,localhost,backend",
     )
     frontend = {key: os.environ.get(key, "") for key in (
         "FIREBASE_WEB_API_KEY", "FIREBASE_WEB_AUTH_DOMAIN", "FIREBASE_WEB_PROJECT_ID",

@@ -124,7 +124,7 @@ def test_a_secret_never_reaches_the_message():
 
 def test_the_host_allowlist_is_derived_from_the_domain():
     files = render()
-    assert "ALLOWED_HOSTS=womanup.uz,www.womanup.uz,127.0.0.1,localhost\n" in files["backend.env"]
+    assert "ALLOWED_HOSTS=womanup.uz,www.womanup.uz,127.0.0.1,localhost,backend\n" in files["backend.env"]
     # Not configurable: a value set in the environment is not what ships.
     assert "ALLOWED_HOSTS=evil.example\n" not in render(ALLOWED_HOSTS="evil.example")["backend.env"]
 

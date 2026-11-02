@@ -110,8 +110,8 @@ List-valued settings (`HH_SEARCH_QUERIES`, `NEWS_INGEST_ALLOWED_DOMAINS`) are
 comma-separated.
 
 Production mode, database connection, debug mode, same-origin CORS and the
-Host allowlist (`APP_DOMAIN`, its `www.` form and loopback for the health
-check) are enforced by the renderer and are intentionally not configurable.
+Host allowlist (`APP_DOMAIN`, its `www.` form, loopback for the image's health
+check and `backend` for the deploy's internal check) are enforced by the renderer and are intentionally not configurable.
 
 Firebase web values are returned by the frontend's allowlisted /public-config
 endpoint at runtime. They are public by design. No frontend rebuild or infra-to-app
