@@ -34,8 +34,23 @@ INTEGERS = {
     "INTEGRATION_TIMEOUT_SECONDS": (1, 120),
     "INTEGRATION_MAX_RETRIES": (0, 20),
     "RATE_LIMIT_PER_MINUTE": (1, 100000),
+    "EXPENSIVE_RATE_LIMIT_PER_MINUTE": (1, 100000),
+    "MAX_REQUEST_BODY_BYTES": (1024, 100000000),
+    "LOGIN_FAILURES_PER_HOUR": (1, 1000),
+    "STAFF_LOGIN_FAILURES_PER_HOUR": (1, 1000),
+    "AI_USER_HOURLY_LIMIT": (0, 100000),
+    "AI_GUEST_IP_HOURLY_LIMIT": (0, 100000),
+    "AI_TRACE_RETENTION_DAYS": (1, 3650),
+    "OTP_RETENTION_HOURS": (1, 8760),
+    "HH_AREA_ID": (1, 100000),
+    "HH_SYNC_INTERVAL_HOURS": (1, 168),
+    "HH_SYNC_PAGES_PER_QUERY": (1, 20),
+    "HH_SYNC_MAX_NEW": (1, 5000),
+    "HH_SYNC_STALE_DAYS": (1, 365),
+    "VACANCY_SEARCH_CACHE_SECONDS": (0, 86400),
+    "VACANCY_DETAIL_CACHE_SECONDS": (0, 86400),
 }
-BOOLEANS = ("NEWS_INGEST_ENABLED", "NEWS_INGEST_AUTO_PUBLISH")
+BOOLEANS = ("NEWS_INGEST_ENABLED", "NEWS_INGEST_AUTO_PUBLISH", "HH_SYNC_ENABLED")
 FRACTIONS = {"AI_MIN_CONFIDENCE": (0.0, 1.0)}
 URLS = (
     "SMS_PROVIDER_URL",
@@ -43,14 +58,20 @@ URLS = (
     "INVEST_HUB_BASE_URL",
     "COMMERCE_BASE_URL",
     "S3_ENDPOINT_URL",
+    "HH_API_BASE_URL",
 )
-HOSTNAMES = ("SMTP_HOST",)
+HOSTNAMES = ("SMTP_HOST", "HH_HOST", "AUTH_COOKIE_DOMAIN")
+#: Settings the backend accepts only from a fixed set of words.
+CHOICES = {
+    "AUTH_COOKIE_SAMESITE": ("lax", "strict"),
+    "VACANCY_PROVIDER": ("headhunter",),
+}
 #: Nothing starts without these.
 REQUIRED = ("APP_DOMAIN", "POSTGRES_PASSWORD", "JWT_SECRET_KEY")
 
 
 TYPED = (
-    tuple(INTEGERS) + BOOLEANS + tuple(FRACTIONS) + URLS + HOSTNAMES
+    tuple(INTEGERS) + BOOLEANS + tuple(FRACTIONS) + URLS + HOSTNAMES + tuple(CHOICES)
 )
 
 
@@ -114,6 +135,10 @@ def check_types(values):
             r"(?=.{1,253}$)[a-zA-Z0-9]+(?:[-.][a-zA-Z0-9]+)*", raw.strip()
         ):
             bad.append(name)
+    for name, words in CHOICES.items():
+        raw = values.get(name)
+        if raw not in (None, "") and raw.strip().lower() not in words:
+            bad.append(name)
     if bad:
         raise ValueError(
             "These production settings are not in the form the backend expects: "
@@ -150,7 +175,16 @@ def render(destination):
         "EDU_JOB_CLIENT_ID", "INVEST_HUB_BASE_URL", "INVEST_HUB_CLIENT_ID",
         "COMMERCE_BASE_URL", "COMMERCE_CLIENT_ID", "INTEGRATION_TIMEOUT_SECONDS",
         "INTEGRATION_MAX_RETRIES", "S3_ENDPOINT_URL", "S3_BUCKET",
-        "RATE_LIMIT_PER_MINUTE",
+        "RATE_LIMIT_PER_MINUTE", "EXPENSIVE_RATE_LIMIT_PER_MINUTE",
+        "MAX_REQUEST_BODY_BYTES", "LOGIN_FAILURES_PER_HOUR",
+        "STAFF_LOGIN_FAILURES_PER_HOUR", "AI_USER_HOURLY_LIMIT",
+        "AI_GUEST_IP_HOURLY_LIMIT", "AI_TRACE_RETENTION_DAYS", "OTP_RETENTION_HOURS",
+        "AUTH_COOKIE_SAMESITE", "AUTH_COOKIE_DOMAIN",
+        "HH_CLIENT_ID", "HH_CLIENT_SECRET", "HH_ACCESS_TOKEN", "HH_SYNC_ENABLED",
+        "HH_API_BASE_URL", "HH_HOST", "HH_AREA_ID", "HH_USER_AGENT",
+        "HH_SEARCH_QUERIES", "HH_SYNC_INTERVAL_HOURS", "HH_SYNC_PAGES_PER_QUERY",
+        "HH_SYNC_MAX_NEW", "HH_SYNC_STALE_DAYS", "VACANCY_PROVIDER",
+        "VACANCY_SEARCH_CACHE_SECONDS", "VACANCY_DETAIL_CACHE_SECONDS",
     ))
     if len(backend.get("JWT_SECRET_KEY", "")) < 48:
         raise ValueError("JWT_SECRET_KEY must be at least 48 characters")
@@ -159,6 +193,9 @@ def render(destination):
         ENVIRONMENT="production", DEBUG="false", DB_ECHO="false",
         DATABASE_URL=f"postgresql+asyncpg://postgres:{password}@postgres:5432/womanup",
         CORS_ORIGINS=f"https://{domain}",
+        # The Host header the API answers to: the site (Caddy forwards the
+        # original Host) and loopback, which the image's own health check uses.
+        ALLOWED_HOSTS=f"{domain},www.{domain},127.0.0.1,localhost",
     )
     frontend = {key: os.environ.get(key, "") for key in (
         "FIREBASE_WEB_API_KEY", "FIREBASE_WEB_AUTH_DOMAIN", "FIREBASE_WEB_PROJECT_ID",
