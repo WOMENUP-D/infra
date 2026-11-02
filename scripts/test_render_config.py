@@ -122,6 +122,34 @@ def test_a_secret_never_reaches_the_message():
     assert "short" not in message
 
 
+def test_the_host_allowlist_is_derived_from_the_domain():
+    files = render()
+    assert "ALLOWED_HOSTS=womanup.uz,www.womanup.uz,127.0.0.1,localhost\n" in files["backend.env"]
+    # Not configurable: a value set in the environment is not what ships.
+    assert "ALLOWED_HOSTS=evil.example\n" not in render(ALLOWED_HOSTS="evil.example")["backend.env"]
+
+
+def test_the_job_board_settings_pass_through_and_are_checked():
+    files = render(
+        HH_CLIENT_ID="app-id", HH_CLIENT_SECRET="s" * 40, HH_SYNC_ENABLED="true",
+        HH_AREA_ID="97", HH_SEARCH_QUERIES="buxgalter, dizayner",
+    )
+    for line in ("HH_CLIENT_ID=app-id\n", "HH_CLIENT_SECRET=" + "s" * 40 + "\n",
+                 "HH_SYNC_ENABLED=true\n", "HH_AREA_ID=97\n", "HH_SEARCH_QUERIES=buxgalter, dizayner\n"):
+        assert line in files["backend.env"], line
+    for bad in ({"HH_AREA_ID": "Tashkent"}, {"HH_SYNC_ENABLED": "maybe"},
+                {"HH_API_BASE_URL": "api.hh.ru"}, {"HH_HOST": "hh uz"}):
+        message = refused(**bad)
+        assert next(iter(bad)) in message, message
+
+
+def test_a_setting_with_a_fixed_set_of_words_is_checked():
+    assert "AUTH_COOKIE_SAMESITE=strict\n" in render(AUTH_COOKIE_SAMESITE="strict")["backend.env"]
+    assert "AUTH_COOKIE_SAMESITE" in refused(AUTH_COOKIE_SAMESITE="none")
+    assert "VACANCY_PROVIDER" in refused(VACANCY_PROVIDER="linkedin")
+    assert "LOGIN_FAILURES_PER_HOUR" in refused(LOGIN_FAILURES_PER_HOUR="0")
+
+
 def test_settings_that_are_not_set_stay_out_of_the_files():
     files = render(SMTP_PORT=None, SMTP_HOST=None)
     assert "SMTP_PORT" not in files["backend.env"]

@@ -47,8 +47,10 @@ deployment is desired.
 Optional named secrets are `FIREBASE_PRIVATE_KEY`, `ANTHROPIC_API_KEY`,
 `SMS_PROVIDER_TOKEN`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`,
 `SMTP_FROM`, `EDU_JOB_CLIENT_SECRET`,
-`INVEST_HUB_CLIENT_SECRET`, `COMMERCE_CLIENT_SECRET`, `S3_ACCESS_KEY`, and
-`S3_SECRET_KEY`. Create only those used by the application.
+`INVEST_HUB_CLIENT_SECRET`, `COMMERCE_CLIENT_SECRET`, `S3_ACCESS_KEY`,
+`S3_SECRET_KEY`, and — for the hh.uz job board — `HH_CLIENT_ID`,
+`HH_CLIENT_SECRET` (an application registered at dev.hh.ru) or
+`HH_ACCESS_TOKEN`. Create only those used by the application.
 
 Generate the database password with openssl rand -hex 32.
 Generate the JWT key with openssl rand -hex 48. Store a Firebase private key with
@@ -93,10 +95,23 @@ INVEST_HUB_BASE_URL INVEST_HUB_CLIENT_ID
 COMMERCE_BASE_URL COMMERCE_CLIENT_ID
 INTEGRATION_TIMEOUT_SECONDS INTEGRATION_MAX_RETRIES
 S3_ENDPOINT_URL S3_BUCKET RATE_LIMIT_PER_MINUTE
+EXPENSIVE_RATE_LIMIT_PER_MINUTE MAX_REQUEST_BODY_BYTES
+LOGIN_FAILURES_PER_HOUR STAFF_LOGIN_FAILURES_PER_HOUR
+AI_USER_HOURLY_LIMIT AI_GUEST_IP_HOURLY_LIMIT
+AI_TRACE_RETENTION_DAYS OTP_RETENTION_HOURS
+AUTH_COOKIE_SAMESITE AUTH_COOKIE_DOMAIN
+HH_SYNC_ENABLED HH_API_BASE_URL HH_HOST HH_AREA_ID HH_USER_AGENT
+HH_SEARCH_QUERIES HH_SYNC_INTERVAL_HOURS HH_SYNC_PAGES_PER_QUERY
+HH_SYNC_MAX_NEW HH_SYNC_STALE_DAYS
+VACANCY_PROVIDER VACANCY_SEARCH_CACHE_SECONDS VACANCY_DETAIL_CACHE_SECONDS
 ```
 
-Production mode, database connection, debug mode and same-origin CORS are
-enforced by the renderer and are intentionally not configurable.
+List-valued settings (`HH_SEARCH_QUERIES`, `NEWS_INGEST_ALLOWED_DOMAINS`) are
+comma-separated.
+
+Production mode, database connection, debug mode, same-origin CORS and the
+Host allowlist (`APP_DOMAIN`, its `www.` form and loopback for the health
+check) are enforced by the renderer and are intentionally not configurable.
 
 Firebase web values are returned by the frontend's allowlisted /public-config
 endpoint at runtime. They are public by design. No frontend rebuild or infra-to-app
