@@ -3,3 +3,7 @@
 *.yml text eol=lf
 *.sql text eol=lf
 *.env text eol=lf
+*.py text eol=lf
+*.md text eol=lf
+Caddyfile text eol=lf
+*.caddy text eol=lf

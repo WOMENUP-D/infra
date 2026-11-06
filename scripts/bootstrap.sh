@@ -1,50 +1,48 @@
 #!/usr/bin/env bash
 set -euo pipefail
+umask 077
 ROOT="${1:-/opt/womanup}"
-SSH_PORT="${2:-22}"
-[[ "$ROOT" =~ ^/opt/[a-z0-9-]+$ ]]
-[[ "$SSH_PORT" =~ ^[0-9]{1,5}$ ]] && (( SSH_PORT > 0 && SSH_PORT < 65536 ))
+[[ "$ROOT" == /opt/womanup ]]
 [[ $EUID == 0 ]] || { echo "Bootstrap requires sudo" >&2; exit 1; }
-source /etc/os-release
-architecture=$(dpkg --print-architecture)
+# Host software, accounts, Docker, APT, firewall, SSH and shared databases are
+# operator-owned prerequisites. Do not install or reconfigure them.
+for command in docker python3 git flock; do
+  command -v "$command" >/dev/null || { echo "Missing prerequisite: $command" >&2; exit 1; }
+done
+docker info >/dev/null
+docker compose version
+[[ ! -L "$ROOT" ]] || { echo "Deployment root cannot be a symlink" >&2; exit 1; }
 install -d -m 0700 "$ROOT"
 exec 9>"$ROOT/deploy.lock"
 flock -w 1800 9
-export DEBIAN_FRONTEND=noninteractive
-apt-get update
-apt-get install -y ca-certificates curl gnupg git python3 ufw
-install -m 0755 -d /etc/apt/keyrings
-if [[ ! -f /etc/apt/keyrings/docker.asc ]]; then
-  curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
-  fingerprint=$(gpg --show-keys --with-colons /etc/apt/keyrings/docker.asc | awk -F: '$1=="fpr" {print $10; exit}')
-  [[ "$fingerprint" == 9DC858229FC7DD38854AE2D88D81803C0EBFCD88 ]]
-  chmod a+r /etc/apt/keyrings/docker.asc
-fi
-printf 'deb [arch=%s signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu %s stable\n' \
-  "$architecture" "$VERSION_CODENAME" > /etc/apt/sources.list.d/docker.list
-apt-get update
-apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-systemctl enable --now docker
-# Remove backup units installed by older WomanUP bootstrap releases.
-systemctl disable --now womanup-backup.timer womanup-backup.service 2>/dev/null || true
-rm -f /etc/systemd/system/womanup-backup.timer /etc/systemd/system/womanup-backup.service
+install -d -m 0700 "$ROOT/config" "$ROOT/config.previous" "$ROOT/releases" "$ROOT/state" \
+  "$ROOT/backups" "$ROOT/data" "$ROOT/data/media"
+# WomanUP has no local-media writer today; reserve private project storage.
+# Only project-owned maintenance units are installed. Existing shared units and
+# all application services remain untouched. No backup runs before configuration.
+command -v systemctl >/dev/null || { echo "systemd is required for the backup timer" >&2; exit 1; }
+cat > /etc/systemd/system/womanup-backup.service <<UNIT
+[Unit]
+Description=WomanUP database and local media snapshot
+After=docker.service
+ConditionPathExists=$ROOT/current/scripts/backup.sh
+ConditionPathExists=$ROOT/config/database.env
+[Service]
+Type=oneshot
+User=root
+UMask=0077
+ExecStart=/usr/bin/bash $ROOT/current/scripts/backup.sh $ROOT
+UNIT
+cat > /etc/systemd/system/womanup-backup.timer <<'UNIT'
+[Unit]
+Description=Daily WomanUP project snapshot
+[Timer]
+OnCalendar=*-*-* 03:45:00 Asia/Tashkent
+Persistent=true
+[Install]
+WantedBy=timers.target
+UNIT
+chmod 0644 /etc/systemd/system/womanup-backup.service /etc/systemd/system/womanup-backup.timer
 systemctl daemon-reload
-# Preserve existing daemon settings; bound logs for newly created containers.
-python3 - <<'PY'
-import json
-from pathlib import Path
-path = Path("/etc/docker/daemon.json")
-config = json.loads(path.read_text()) if path.exists() else {}
-config.setdefault("log-driver", "local")
-config.setdefault("log-opts", {"max-size": "10m", "max-file": "3"})
-path.write_text(json.dumps(config, indent=2) + "\n")
-PY
-docker compose version
-ufw allow "$SSH_PORT/tcp"
-ufw allow 80/tcp
-ufw allow 443/tcp
-ufw default deny incoming
-ufw default allow outgoing
-ufw --force enable
-install -d -m 0700 "$ROOT/config" "$ROOT/releases" "$ROOT/state"
-echo "Bootstrap complete; existing volumes and application data were preserved."
+systemctl enable --now womanup-backup.timer
+echo "WomanUP storage and project backup timer prepared. No application services started."

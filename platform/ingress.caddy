@@ -1,0 +1,11 @@
+# Operator-reviewed addition to the EXISTING public Caddyfile.
+# Not mounted/applied by WomanUP deployment. Keep this block in the ingress
+# owner's source repository so its next deployment cannot remove the route.
+womanup.uz {
+    tls {
+        issuer acme {
+            disable_tlsalpn_challenge
+        }
+    }
+    reverse_proxy womanup-proxy:8080
+}

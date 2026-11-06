@@ -9,4 +9,25 @@ permissions:
 jobs:
   deploy:
     uses: ./.github/workflows/_deploy.yml
-    secrets: inherit
+    secrets:
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_USERNAME: ${{ secrets.VPS_USERNAME }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+      GHCR_READ_TOKEN: ${{ secrets.GHCR_READ_TOKEN }}
+      POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+      DB_USER: ${{ secrets.DB_USER }}
+      JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
+      FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      SMS_PROVIDER_TOKEN: ${{ secrets.SMS_PROVIDER_TOKEN }}
+      SMTP_HOST: ${{ secrets.SMTP_HOST }}
+      SMTP_PORT: ${{ secrets.SMTP_PORT }}
+      SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+      SMTP_USER: ${{ secrets.SMTP_USER }}
+      SMTP_FROM: ${{ secrets.SMTP_FROM }}
+      EDU_JOB_CLIENT_SECRET: ${{ secrets.EDU_JOB_CLIENT_SECRET }}
+      INVEST_HUB_CLIENT_SECRET: ${{ secrets.INVEST_HUB_CLIENT_SECRET }}
+      COMMERCE_CLIENT_SECRET: ${{ secrets.COMMERCE_CLIENT_SECRET }}
+      S3_ACCESS_KEY: ${{ secrets.S3_ACCESS_KEY }}
+      S3_SECRET_KEY: ${{ secrets.S3_SECRET_KEY }}

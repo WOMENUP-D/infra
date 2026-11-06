@@ -3,6 +3,7 @@ import json
 import os
 from pathlib import Path
 import re
+from urllib.parse import quote
 
 
 def selected_env(names):
@@ -14,8 +15,24 @@ def render(destination):
     if not re.fullmatch(r"(?=.{1,253}$)[a-z0-9]+(?:[-.][a-z0-9]+)*\.[a-z]{2,}", domain):
         raise ValueError("APP_DOMAIN must be a bare DNS name")
     password = os.environ.get("POSTGRES_PASSWORD", "")
-    if not re.fullmatch(r"[0-9a-fA-F]{64,128}", password):
-        raise ValueError("POSTGRES_PASSWORD must be 64-128 hexadecimal characters")
+    if not password or any(c in password for c in "\r\n\x00"):
+        raise ValueError("POSTGRES_PASSWORD must be a nonempty single-line application password")
+    database = {key: os.environ.get(key, "") for key in
+                ("DB_HOST", "DB_PORT", "DB_NAME", "DB_USER", "DB_NETWORK", "INGRESS_NETWORK")}
+    if not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9.-]*", database["DB_HOST"]):
+        raise ValueError("Invalid DB_HOST")
+    if not database["DB_PORT"].isascii() or not database["DB_PORT"].isdigit() or not 0 < int(database["DB_PORT"]) < 65536:
+        raise ValueError("Invalid DB_PORT")
+    # These are the database and owner verified on the dedicated host. Fail closed
+    # rather than risk restoring or migrating another tenant through a typo.
+    if database["DB_NAME"] != "womanup_db" or database["DB_USER"] != "womanup_user":
+        raise ValueError("Expected the provisioned WomanUP database and role")
+    for key in ("DB_NETWORK", "INGRESS_NETWORK"):
+        if not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9_.-]*", database[key]):
+            raise ValueError(f"Invalid {key}")
+    url = (f"postgresql+asyncpg://{quote(database['DB_USER'], safe='')}:"
+           f"{quote(password, safe='')}@{database['DB_HOST']}:"
+           f"{database['DB_PORT']}/{database['DB_NAME']}")
     backend = selected_env((
         "JWT_SECRET_KEY", "FIREBASE_PRIVATE_KEY", "ANTHROPIC_API_KEY",
         "SMS_PROVIDER_TOKEN", "SMTP_PASSWORD", "EDU_JOB_CLIENT_SECRET",
@@ -40,7 +57,7 @@ def render(destination):
         raise ValueError("JWT_SECRET_KEY must be at least 48 characters")
     backend.update(
         ENVIRONMENT="production", DEBUG="false", DB_ECHO="false",
-        DATABASE_URL=f"postgresql+asyncpg://postgres:{password}@postgres:5432/womanup",
+        DATABASE_URL=url,
         CORS_ORIGINS=f"https://{domain}",
     )
     frontend = {key: os.environ.get(key, "") for key in (
@@ -48,11 +65,12 @@ def render(destination):
         "FIREBASE_WEB_APP_ID", "FIREBASE_WEB_STORAGE_BUCKET", "FIREBASE_WEB_SENDER_ID",
     )}
     files = {
-        "deploy.env": {"APP_DOMAIN": domain},
+        "deploy.env": {"APP_DOMAIN": domain, "DB_NETWORK": database["DB_NETWORK"],
+                       "INGRESS_NETWORK": database["INGRESS_NETWORK"]},
         "backend.env": backend,
         "frontend.env": frontend,
-        "migration.env": {"DATABASE_URL": f"postgresql+asyncpg://postgres:{password}@postgres:5432/womanup"},
-        "postgres.env": {"POSTGRES_USER": "postgres", "POSTGRES_DB": "womanup", "POSTGRES_PASSWORD": password},
+        "database.env": {key: database[key] for key in ("DB_HOST", "DB_PORT", "DB_NAME", "DB_USER")}
+                        | {"POSTGRES_PASSWORD": password},
     }
     destination.mkdir(parents=True, exist_ok=True, mode=0o700)
     for name, values in files.items():

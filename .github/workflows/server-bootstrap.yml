@@ -8,4 +8,8 @@ jobs:
     uses: ./.github/workflows/_deploy.yml
     with:
       mode: bootstrap
-    secrets: inherit
+    secrets:
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_USERNAME: ${{ secrets.VPS_USERNAME }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}

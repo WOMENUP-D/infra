@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT="${1:-/opt/womanup}"
-[[ "$ROOT" =~ ^/opt/[a-z0-9-]+$ ]]
+[[ "$ROOT" == /opt/womanup && ! -L "$ROOT" ]]
 [[ $EUID == 0 ]]
 INCOMING=$(cd "$(dirname "$0")/.." && pwd)
 [[ "$INCOMING" == /tmp/womanup.* ]]

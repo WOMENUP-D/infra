@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT="${1:-/opt/womanup}"
-[[ "$ROOT" =~ ^/opt/[a-z0-9-]+$ ]] || { echo "Invalid deployment root" >&2; exit 1; }
+[[ "$ROOT" == /opt/womanup && ! -L "$ROOT" ]] || { echo "Invalid deployment root" >&2; exit 1; }
 RELEASE="${RELEASE:-$ROOT/current}"
 export CONFIG_DIR="$ROOT/config"
 mkdir -p "$ROOT/state"
@@ -30,9 +30,7 @@ running() {
   [[ -n "$id" ]] && [[ "$(docker inspect --format '{{.State.Running}}' "$id")" == true ]]
 }
 revision() {
-  if [[ "$(c exec -T postgres psql -U postgres -d womanup -Atc "SELECT to_regclass('public.alembic_version') IS NOT NULL")" == t ]]; then
-    c exec -T postgres psql -U postgres -d womanup -Atc 'SELECT version_num FROM alembic_version ORDER BY version_num'
-  fi
+  python3 "$RELEASE/scripts/database.py" "$CONFIG_DIR" revision
 }
 internal_http_check() {
   local url="$1"

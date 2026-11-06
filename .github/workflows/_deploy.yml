@@ -5,6 +5,49 @@ on:
       mode:
         type: string
         default: deploy
+    secrets:
+      VPS_HOST:
+        required: false
+      VPS_USERNAME:
+        required: false
+      VPS_SSH_KEY:
+        required: false
+      VPS_KNOWN_HOSTS:
+        required: false
+      GHCR_READ_TOKEN:
+        required: false
+      POSTGRES_PASSWORD:
+        required: false
+      DB_USER:
+        required: false
+      JWT_SECRET_KEY:
+        required: false
+      FIREBASE_PRIVATE_KEY:
+        required: false
+      ANTHROPIC_API_KEY:
+        required: false
+      SMS_PROVIDER_TOKEN:
+        required: false
+      SMTP_HOST:
+        required: false
+      SMTP_PORT:
+        required: false
+      SMTP_PASSWORD:
+        required: false
+      SMTP_USER:
+        required: false
+      SMTP_FROM:
+        required: false
+      EDU_JOB_CLIENT_SECRET:
+        required: false
+      INVEST_HUB_CLIENT_SECRET:
+        required: false
+      COMMERCE_CLIENT_SECRET:
+        required: false
+      S3_ACCESS_KEY:
+        required: false
+      S3_SECRET_KEY:
+        required: false
 permissions:
   contents: read
 jobs:
@@ -24,14 +67,16 @@ jobs:
           python3 scripts/validate_images.py .
           config_dir=$(mktemp -d)
           trap 'rm -rf -- "$config_dir"' EXIT
-          printf 'APP_DOMAIN=example.com\n' > "$config_dir/deploy.env"
-          touch "$config_dir/backend.env" "$config_dir/frontend.env" "$config_dir/migration.env" "$config_dir/postgres.env"
+          printf 'APP_DOMAIN=example.com\nDB_NETWORK=infrastructure_database\nINGRESS_NETWORK=agrozanjir_web\n' > "$config_dir/deploy.env"
+          touch "$config_dir/backend.env" "$config_dir/frontend.env"
           CONFIG_DIR="$config_dir" docker compose --env-file "$config_dir/deploy.env" config --quiet
           CONFIG_DIR="$config_dir" docker compose --env-file "$config_dir/deploy.env" config --format json | python3 scripts/validate_compose.py
       - name: Validate workflow and shell syntax
         run: |
           docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667 -shellcheck= .github/workflows/*.yml
-          docker run --rm -v "$PWD:/repo" -w /repo koalaman/shellcheck:v0.11.0@sha256:61862eba1fcf09a484ebcc6feea46f1782532571a34ed51fedf90dd25f925a8d -S warning -e SC1091 scripts/*.sh platform/*.sh
+          docker run --rm -v "$PWD:/repo" -w /repo koalaman/shellcheck:v0.11.0@sha256:61862eba1fcf09a484ebcc6feea46f1782532571a34ed51fedf90dd25f925a8d -S warning -e SC1091 scripts/*.sh
+      - name: Test deployment safety and configuration
+        run: python3 -m unittest discover -s tests -v
   deploy:
     needs: validate
     if: github.ref == 'refs/heads/main'
@@ -52,6 +97,12 @@ jobs:
       GHCR_READ_TOKEN: ${{ secrets.GHCR_READ_TOKEN }}
       APP_DOMAIN: ${{ vars.APP_DOMAIN }}
       POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+      DB_USER: ${{ secrets.DB_USER }}
+      DB_HOST: ${{ vars.DB_HOST }}
+      DB_PORT: ${{ vars.DB_PORT }}
+      DB_NAME: ${{ vars.DB_NAME }}
+      DB_NETWORK: ${{ vars.DB_NETWORK }}
+      INGRESS_NETWORK: ${{ vars.INGRESS_NETWORK }}
       JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
       FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -117,4 +168,6 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - name: Ship and reconcile production
-        run: bash scripts/ship.sh "${{ inputs.mode }}"
+        env:
+          SHIP_MODE: ${{ inputs.mode }}
+        run: bash scripts/ship.sh "$SHIP_MODE"

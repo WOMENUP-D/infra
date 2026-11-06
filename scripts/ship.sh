@@ -2,11 +2,10 @@
 set -euo pipefail
 umask 077
 : "${VPS_HOST:?}" "${VPS_USERNAME:?}" "${VPS_SSH_KEY:?}" "${VPS_KNOWN_HOSTS:?}"
-: "${GHCR_USERNAME:?}" "${GHCR_READ_TOKEN:?}"
 ROOT="${DEPLOY_ROOT:?}"
 PORT="${VPS_SSH_PORT:?}"
 MODE="${1:-deploy}"
-[[ "$ROOT" =~ ^/opt/[a-z0-9-]+$ ]]
+[[ "$ROOT" == /opt/womanup ]]
 [[ "$PORT" =~ ^[0-9]{1,5}$ ]] && (( PORT > 0 && PORT < 65536 ))
 [[ "$VPS_HOST" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*$ ]]
 [[ "$VPS_USERNAME" =~ ^[a-z_][a-z0-9_-]*$ ]]
@@ -17,10 +16,12 @@ printf '%s\n' "$VPS_SSH_KEY" > "$temp/key"
 printf '%s\n' "$VPS_KNOWN_HOSTS" > "$temp/known_hosts"
 ssh_args=(-i "$temp/key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=$temp/known_hosts" -o ConnectTimeout=15 -o ServerAliveInterval=30)
 target="$VPS_USERNAME@$VPS_HOST"
-python3 scripts/render_config.py .runtime/config
 if [[ "$MODE" == bootstrap ]]; then
   ssh "${ssh_args[@]}" -p "$PORT" "$target" "sudo -n bash -s -- '$ROOT' '$PORT'" < scripts/bootstrap.sh
+  exit 0
 fi
+: "${GHCR_USERNAME:?}" "${GHCR_READ_TOKEN:?}"
+python3 scripts/render_config.py .runtime/config
 python3 - <<'PY'
 import json, os
 from pathlib import Path

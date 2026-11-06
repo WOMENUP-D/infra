@@ -1,4 +1,5 @@
-{$APP_DOMAIN} {
+# TLS is terminated by the existing public Caddy (see ingress.caddy).
+http://:8080 {
     encode zstd gzip
     header {
         X-Content-Type-Options nosniff
@@ -8,9 +9,9 @@
     }
     @backend path /api/* /health /health/ready
     handle @backend {
-        reverse_proxy backend:8000
+        reverse_proxy womanup-api:8000
     }
     handle {
-        reverse_proxy frontend:3000
+        reverse_proxy womanup-web:3000
     }
 }
