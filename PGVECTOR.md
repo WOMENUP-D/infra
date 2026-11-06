@@ -128,3 +128,31 @@ extensions with CASCADE as a rollback shortcut.
 
 Package and per-database activation reference:
 https://github.com/pgvector/pgvector#installation
+
+## Applied on 2026-11-06
+
+Completed against the existing shared service under the user's setup approval:
+
+- Built `infrastructure-postgres-pgvector:18.1-womanup` from the exact existing
+  PostgreSQL image; installed pgvector package 0.8.7-1.pgdg13+1 without upgrading
+  PostgreSQL. The PostgreSQL binary SHA-256 was identical before and after.
+- Saved the original Compose configuration and a verified WomanUP database dump
+  under `/srv/infrastructure/postgres/maintenance/womanup-pgvector/`.
+- Stored the build definition at `/srv/infrastructure/postgres/Dockerfile.pgvector`
+  and changed only the shared service's image line. No host APT/Docker/network
+  configuration was changed.
+- Recreated only the shared PostgreSQL service, preserving
+  `infrastructure-postgres_postgres_data` at `/var/lib/postgresql`.
+- Enabled vector 0.8.7, pg_trgm 1.6 and uuid-ossp 1.1 only in `womanup_db`.
+  A vector-distance query returned the expected value. The project role remains
+  unprivileged, and live application-password and network preflights pass.
+- Shared PostgreSQL and existing AgroZanjir/YouthCapital app containers are healthy.
+
+A retry of the user's manually approved deployment stopped before schema changes
+because Alembic did not escape percent signs in encoded passwords. The fix and a
+regression test were pushed to backend main (`7ef4cf0`). Further migrations and
+domain cutover are held pending transfer of existing production data, as requested.
+The old server SSH connection details are still needed.
+
+GitHub prod now explicitly sets INGRESS_NETWORK=agrozanjir_web and VPS_SSH_PORT=22.
+Existing database and registry credentials were retained.
