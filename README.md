@@ -345,3 +345,6 @@ cookie and vacancy-cache variables keep their established application names.
 Snapshots are verified with pg_restore before publishing a manifest, check free
 space, and retain at least three complete snapshots plus all snapshots from the
 last seven days. Legacy loose dumps and unrelated files are retained.
+
+See [MIGRATION_STATUS.md](MIGRATION_STATUS.md) for the completed new-server deployment,
+verified data snapshot, and user-controlled traffic-switch details.
