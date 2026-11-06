@@ -106,3 +106,16 @@ CI suites and published-image scans remain required for future app releases.
 
 See README.md for the ordered rollout and recovery commands. Nothing here is
 authorization to push, deploy, migrate, reload ingress or alter shared services.
+
+## Main integration — 2026-11-06
+
+Merged current origin/main without changing its published app image digests.
+Preserved incoming-image settings preflight, typed renderer/provider settings,
+pre-migration backup, unchanged-schema rollback, last-known-good configuration
+promotion and staff-account operation. Adapted regression tests to shared-DB
+configuration. Pushes run validation only; server jobs require a manual dispatch
+with approve_production=true. Re-ran 14 migration safety tests, renderer/deploy
+order/backup/staff regressions, ShellCheck and actionlint successfully.
+Shared service inspected read-only: still PostgreSQL 18.1 with no vector support.
+No production migration, service restart, image replacement or extension creation
+was performed. PGVECTOR.md contains operator instructions only.

@@ -2,10 +2,19 @@ name: Production deploy implementation
 on:
   workflow_call:
     inputs:
+      production_approved:
+        type: boolean
+        default: false
       mode:
         type: string
         default: deploy
     secrets:
+      HH_CLIENT_ID:
+        required: false
+      HH_CLIENT_SECRET:
+        required: false
+      HH_ACCESS_TOKEN:
+        required: false
       VPS_HOST:
         required: false
       VPS_USERNAME:
@@ -71,6 +80,13 @@ jobs:
           touch "$config_dir/backend.env" "$config_dir/frontend.env"
           CONFIG_DIR="$config_dir" docker compose --env-file "$config_dir/deploy.env" config --quiet
           CONFIG_DIR="$config_dir" docker compose --env-file "$config_dir/deploy.env" config --format json | python3 scripts/validate_compose.py
+      - name: Check the configuration renderer, the deploy order and the backups
+        run: |
+          set -euo pipefail
+          python3 scripts/test_render_config.py
+          python3 scripts/test_deploy_order.py
+          python3 scripts/test_backup.py
+          python3 scripts/test_create_staff.py
       - name: Validate workflow and shell syntax
         run: |
           docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667 -shellcheck= .github/workflows/*.yml
@@ -79,7 +95,7 @@ jobs:
         run: python3 -m unittest discover -s tests -v
   deploy:
     needs: validate
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && inputs.production_approved
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     environment: prod
@@ -155,6 +171,32 @@ jobs:
       S3_ENDPOINT_URL: ${{ vars.S3_ENDPOINT_URL }}
       S3_BUCKET: ${{ vars.S3_BUCKET }}
       RATE_LIMIT_PER_MINUTE: ${{ vars.RATE_LIMIT_PER_MINUTE }}
+      EXPENSIVE_RATE_LIMIT_PER_MINUTE: ${{ vars.EXPENSIVE_RATE_LIMIT_PER_MINUTE }}
+      MAX_REQUEST_BODY_BYTES: ${{ vars.MAX_REQUEST_BODY_BYTES }}
+      LOGIN_FAILURES_PER_HOUR: ${{ vars.LOGIN_FAILURES_PER_HOUR }}
+      STAFF_LOGIN_FAILURES_PER_HOUR: ${{ vars.STAFF_LOGIN_FAILURES_PER_HOUR }}
+      AI_USER_HOURLY_LIMIT: ${{ vars.AI_USER_HOURLY_LIMIT }}
+      AI_GUEST_IP_HOURLY_LIMIT: ${{ vars.AI_GUEST_IP_HOURLY_LIMIT }}
+      AI_TRACE_RETENTION_DAYS: ${{ vars.AI_TRACE_RETENTION_DAYS }}
+      OTP_RETENTION_HOURS: ${{ vars.OTP_RETENTION_HOURS }}
+      AUTH_COOKIE_SAMESITE: ${{ vars.AUTH_COOKIE_SAMESITE }}
+      AUTH_COOKIE_DOMAIN: ${{ vars.AUTH_COOKIE_DOMAIN }}
+      HH_CLIENT_ID: ${{ secrets.HH_CLIENT_ID }}
+      HH_CLIENT_SECRET: ${{ secrets.HH_CLIENT_SECRET }}
+      HH_ACCESS_TOKEN: ${{ secrets.HH_ACCESS_TOKEN }}
+      HH_SYNC_ENABLED: ${{ vars.HH_SYNC_ENABLED }}
+      HH_API_BASE_URL: ${{ vars.HH_API_BASE_URL }}
+      HH_HOST: ${{ vars.HH_HOST }}
+      HH_AREA_ID: ${{ vars.HH_AREA_ID }}
+      HH_USER_AGENT: ${{ vars.HH_USER_AGENT }}
+      HH_SEARCH_QUERIES: ${{ vars.HH_SEARCH_QUERIES }}
+      HH_SYNC_INTERVAL_HOURS: ${{ vars.HH_SYNC_INTERVAL_HOURS }}
+      HH_SYNC_PAGES_PER_QUERY: ${{ vars.HH_SYNC_PAGES_PER_QUERY }}
+      HH_SYNC_MAX_NEW: ${{ vars.HH_SYNC_MAX_NEW }}
+      HH_SYNC_STALE_DAYS: ${{ vars.HH_SYNC_STALE_DAYS }}
+      VACANCY_PROVIDER: ${{ vars.VACANCY_PROVIDER }}
+      VACANCY_SEARCH_CACHE_SECONDS: ${{ vars.VACANCY_SEARCH_CACHE_SECONDS }}
+      VACANCY_DETAIL_CACHE_SECONDS: ${{ vars.VACANCY_DETAIL_CACHE_SECONDS }}
       FIREBASE_WEB_API_KEY: ${{ vars.FIREBASE_WEB_API_KEY }}
       FIREBASE_WEB_AUTH_DOMAIN: ${{ vars.FIREBASE_WEB_AUTH_DOMAIN }}
       FIREBASE_WEB_PROJECT_ID: ${{ vars.FIREBASE_WEB_PROJECT_ID }}

@@ -1,7 +1,11 @@
 """Project-only snapshots. Never back up a cluster, roles or Docker volumes."""
+import database as db_client
 from datetime import datetime, timezone
 import hashlib
 import json
+import shutil
+import time
+import re
 from pathlib import Path, PurePosixPath
 import subprocess
 import sys
@@ -33,10 +37,19 @@ def database(root, action, *options):
 def backup(root):
     backup_root = root / "backups"
     backup_root.mkdir(mode=0o700, exist_ok=True)
+    values = db_client.settings(root / "config")
+    size = int(db_client.query(values, "SELECT pg_database_size(current_database());"))
+    media_size = sum(p.stat().st_size for p in (root / "data/media").rglob("*") if p.is_file())
+    if shutil.disk_usage(backup_root).free < (size + media_size) * 3 // 2 + 268435456:
+        raise RuntimeError("Insufficient space for WomanUP snapshot")
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:8]
     snapshot = backup_root / stamp
     snapshot.mkdir(mode=0o700)
     database(root, "dump", "--file", snapshot / "database.dump")
+    with (snapshot / "database.dump").open("rb") as source:
+        subprocess.run(["docker", "exec", "-i", db_client.CONTAINER,
+                        "pg_restore", "--list"], stdin=source,
+                       stdout=subprocess.DEVNULL, check=True)
     media = root / "data/media"
     if media.is_symlink():
         raise ValueError("Media directory cannot be a symlink")
@@ -47,9 +60,30 @@ def backup(root):
                 for name in ("database.dump", "media.tar.gz")}}
     # The manifest is written last: partial snapshots can never be restored.
     (snapshot / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+    prune(backup_root)
     print(f"WomanUP database and local media snapshot: {snapshot}")
     print("External S3 media, when used, requires a separate bucket-scoped snapshot.")
     return snapshot
+
+
+def prune(directory):
+    """Retain at least three complete snapshots and every snapshot from this week."""
+    snapshots = []
+    for path in directory.iterdir():
+        if path.is_symlink() or not path.is_dir() or not re.fullmatch(r"\d{8}T\d{6}Z-[a-f0-9]{8}", path.name):
+            continue
+        manifest = path / "manifest.json"
+        if manifest.is_file() and json.loads(manifest.read_text()).get("database") == "womanup_db":
+            snapshots.append(path)
+    snapshots.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+    for path in snapshots[3:]:
+        if path.stat().st_mtime >= time.time() - 7 * 86400:
+            continue
+        if {p.name for p in path.iterdir()} != {"database.dump", "media.tar.gz", "manifest.json"}:
+            continue
+        for file in path.iterdir():
+            file.unlink()
+        path.rmdir()
 
 
 def reject_links(member):

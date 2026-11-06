@@ -28,7 +28,9 @@ export RELEASE="$ROOT/releases/$sha"
 mkdir -p "$RELEASE" "$ROOT/config" "$ROOT/config.previous" "$ROOT/state"
 git -C "$ROOT/repository.git" archive "$sha" | tar -x -C "$RELEASE"
 python3 "$RELEASE/scripts/validate_images.py" "$RELEASE"
-cp -a "$ROOT/config/." "$ROOT/config.previous/"
+# The previous configuration is promoted by deploy.sh once the release is
+# healthy. Copying it here overwrote the last working configuration with the
+# one being deployed, so a failed deploy destroyed the thing rollback needs.
 cp "$INCOMING/config/"*.env "$ROOT/config/"
 chmod 600 "$ROOT/config/"*.env
 export DOCKER_CONFIG

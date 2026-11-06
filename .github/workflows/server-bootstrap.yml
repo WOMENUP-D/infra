@@ -1,12 +1,18 @@
 name: Server Bootstrap
 on:
   workflow_dispatch:
+    inputs:
+      approve_production:
+        description: Explicitly approve production changes
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
   bootstrap:
     uses: ./.github/workflows/_deploy.yml
     with:
+      production_approved: ${{ inputs.approve_production }}
       mode: bootstrap
     secrets:
       VPS_HOST: ${{ secrets.VPS_HOST }}

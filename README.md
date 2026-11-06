@@ -326,3 +326,22 @@ scans and image security gates; they receive no production database settings.
 See `VALIDATION.md` for checks actually executed for this migration and remaining
 production checks. No migrations, restarts, deployments or database writes were
 performed on the server during preparation.
+
+## Push approval and manual production approval
+
+Pushes validate the release definition only. Every deployment/bootstrap caller now
+requires manual workflow dispatch with `approve_production=true` before its server
+job runs. This preserves separate push and deployment approval during migration.
+The merged app preflight validates incoming settings before stopping writers;
+pre-migration snapshots and promotion of last-known-good config are retained.
+HeadHunter and security settings from current main remain forwarded.
+
+See [PGVECTOR.md](PGVECTOR.md) for the shared PostgreSQL owner's exact image-build,
+maintenance and database-extension commands. These commands require separate approval.
+The existing Create staff account workflow and its input checks are retained.
+Additional HeadHunter credentials (`HH_CLIENT_ID`, `HH_CLIENT_SECRET`,
+`HH_ACCESS_TOKEN`) remain prod secrets; the merged HH, rate-limit, retention,
+cookie and vacancy-cache variables keep their established application names.
+Snapshots are verified with pg_restore before publishing a manifest, check free
+space, and retain at least three complete snapshots plus all snapshots from the
+last seven days. Legacy loose dumps and unrelated files are retained.

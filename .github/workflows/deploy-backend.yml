@@ -4,12 +4,22 @@ on:
     branches: [main]
     paths: ['apps/backend/**']
   workflow_dispatch:
+    inputs:
+      approve_production:
+        description: Explicitly approve production changes
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
   deploy:
     uses: ./.github/workflows/_deploy.yml
+    with:
+      production_approved: ${{ github.event_name == 'workflow_dispatch' && inputs.approve_production }}
     secrets:
+      HH_CLIENT_ID: ${{ secrets.HH_CLIENT_ID }}
+      HH_CLIENT_SECRET: ${{ secrets.HH_CLIENT_SECRET }}
+      HH_ACCESS_TOKEN: ${{ secrets.HH_ACCESS_TOKEN }}
       VPS_HOST: ${{ secrets.VPS_HOST }}
       VPS_USERNAME: ${{ secrets.VPS_USERNAME }}
       VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
