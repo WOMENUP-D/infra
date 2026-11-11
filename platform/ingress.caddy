@@ -9,3 +9,15 @@ womanup.uz {
     }
     reverse_proxy womanup-proxy:8080
 }
+
+# www.womanup.uz had no site block, so Caddy held no certificate for it and
+# Cloudflare (Full strict) answered 525. Same issuance settings; it only
+# redirects to the bare domain.
+www.womanup.uz {
+    tls {
+        issuer acme {
+            disable_tlsalpn_challenge
+        }
+    }
+    redir https://womanup.uz{uri} permanent
+}
